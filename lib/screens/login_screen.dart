@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
+import '../services/token_storage.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -10,6 +12,31 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _farmController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  void _handleLogin() async {
+    final result = await ApiService.loginUser(
+      _farmController.text,
+      _passwordController.text,
+    );
+
+    if (!mounted) return;
+
+    if (result != null && result['success'] == true) {
+      final token = result['token'];
+      await TokenStorage.saveToken(token); // ✅ save securely
+      print("🔑 Stored Token: $token");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ Login successful")),
+      );
+
+      // TODO: Navigate to dashboard
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("❌ Login failed")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,11 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                         ),
-                        onPressed: () {
-                          // TODO: Add login functionality
-                          debugPrint(
-                              "Farm: ${_farmController.text}, Password: ${_passwordController.text}");
-                        },
+                        onPressed: _handleLogin,
                         child: const Text(
                           "Sign In",
                           style: TextStyle(fontSize: 16),
