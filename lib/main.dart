@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const AquaLeafApp());
@@ -13,10 +13,9 @@ class AquaLeafApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'AquaLeaf',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-      ),
-      home: const LoginScreen(),
+      theme: ThemeData(primarySwatch: Colors.teal),
+      home: const SplashScreen(), // ✅ start here
     );
   }
 }
+

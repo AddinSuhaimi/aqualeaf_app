@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/token_storage.dart';
+import 'species_selection_screen.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,14 +25,32 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (result != null && result['success'] == true) {
       final token = result['token'];
-      await TokenStorage.saveToken(token); // ✅ save securely
-      print("🔑 Stored Token: $token");
+      await TokenStorage.saveToken(token); // save securely
+      print("Stored Token: $token");
+
+      final savedToken = await TokenStorage.getToken();
+      print("Retrieved token: $savedToken");
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("✅ Login successful")),
       );
 
-      // TODO: Navigate to dashboard
+      // Check if species already chosen
+      final species = await TokenStorage.getSpecies();
+
+      if (!mounted) return;
+
+      if (species == null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const SpeciesSelectionScreen()),
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      }
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("❌ Login failed")),
