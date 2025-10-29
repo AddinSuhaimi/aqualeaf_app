@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import '../services/token_storage.dart';
 import 'login_screen.dart';
 import 'species_selection_screen.dart';
+import 'scan_seaweed_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -209,7 +210,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 onPressed: () {
-                  // TODO: navigate to Scanner screen
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ScanSeaweedScreen()),
+                  );
                 },
                 child: const Text(
                   'Scan Seaweed',
