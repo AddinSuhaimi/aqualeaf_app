@@ -10,16 +10,20 @@ import 'home_screen.dart';
 
 class ScanSeaweedScreen extends StatefulWidget {
   const ScanSeaweedScreen({super.key});
+
   @override
   State<ScanSeaweedScreen> createState() => _ScanSeaweedScreenState();
 }
 
 class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
   CameraController? _controller;
-  bool _ready = false;
-  bool _cooldown = false;
-  img.Image? _previous;
-  final double _motionThreshold = 25; // % of changed pixels to trigger capture
+  bool _isReady = false;
+
+  // Frame tracking
+  img.Image? _prevFrame;
+  List<double> motionHistory = [];
+  final int windowSize = 5;
+  bool _capturing = false;
 
   @override
   void initState() {
@@ -36,7 +40,7 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
     );
     await _controller!.initialize();
     _controller!.startImageStream(_processFrame);
-    setState(() => _ready = true);
+    setState(() => _isReady = true);
 
     // Temporary test insert (for DB check only)
     final testReport = ScanReport(
@@ -49,78 +53,105 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
       qualityStatus: 'good',
     );
     await DatabaseHelper.instance.insertReport(testReport);
-    debugPrint('✅ Inserted test record on init.');
+    debugPrint('Inserted test record on init.');
 
   }
 
-  /// Convert YUV420 CameraImage (grayscale) to img.Image for comparison
+  // === Convert frame to grayscale ===
   img.Image _toGray(CameraImage image) {
     final w = image.width;
     final h = image.height;
     final yPlane = image.planes[0].bytes;
-
     final gray = img.Image(width: w, height: h);
     int i = 0;
-
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
-        final lum = yPlane[i];               // 0..255
-        gray.setPixelRgba(x, y, lum, lum, lum, 255); // <-- add alpha
+        final lum = yPlane[i];
+        gray.setPixelRgba(x, y, lum, lum, lum, 255);
         i++;
       }
     }
     return gray;
   }
 
-  /// Calculate % difference between two grayscale frames
+  // === Calculate motion difference ===
   double _diffPercent(img.Image prev, img.Image curr) {
     int changed = 0;
     int total = prev.width * prev.height;
-    const step = 8; // skip pixels for speed
-
+    const step = 8;
     for (int y = 0; y < prev.height; y += step) {
       for (int x = 0; x < prev.width; x += step) {
         final p1 = prev.getPixel(x, y);
         final p2 = curr.getPixel(x, y);
-
-        // Extract luminance (grayscale intensity)
         final lum1 = img.getLuminance(p1);
         final lum2 = img.getLuminance(p2);
-
         if ((lum1 - lum2).abs() > 25) changed++;
       }
     }
-
     final diffPercent = (changed / (total / (step * step))) * 100.0;
     return diffPercent.toDouble();
   }
 
+  // === Estimate how much of frame is "filled" (coverage %) ===
+  double _estimateCoverage(img.Image gray) {
+    int filled = 0;
+    int total = gray.width * gray.height;
+    const step = 8; // skip pixels for speed
+    for (int y = 0; y < gray.height; y += step) {
+      for (int x = 0; x < gray.width; x += step) {
+        final lum = img.getLuminance(gray.getPixel(x, y));
+        if (lum < 180) filled++; // darker = likely seaweed
+      }
+    }
+    return (filled / (total / (step * step))) * 100.0; // %
+  }
+
+  // === Frame-by-frame processing ===
   void _processFrame(CameraImage frame) async {
-    if (_cooldown) return;
+    if (_capturing) return;
+
     final gray = _toGray(frame);
-    if (_previous == null) {
-      _previous = gray;
+    if (_prevFrame == null) {
+      _prevFrame = gray;
       return;
     }
 
-    double diff = _diffPercent(_previous!, gray);
-    _previous = gray;
+    final diff = _diffPercent(_prevFrame!, gray);
+    _prevFrame = gray;
 
-    if (diff > _motionThreshold) {
-      _cooldown = true;
-      await _captureAndAnalyze();
-      Future.delayed(const Duration(seconds: 3), () => _cooldown = false);
+    // Average motion for entry detection
+    motionHistory.add(diff);
+    if (motionHistory.length > windowSize) motionHistory.removeAt(0);
+    final avgMotion = motionHistory.reduce((a, b) => a + b) / motionHistory.length;
+
+    final coverage = _estimateCoverage(gray);
+
+    // Capture when guide box is mostly filled and there is motion
+    if (avgMotion > 5 && coverage >= 80 && !_capturing) {
+      debugPrint('Coverage=${coverage.toStringAsFixed(1)}%, motion=${avgMotion.toStringAsFixed(1)} → capturing...');
+      await _captureImage();
+      _startCooldown();
     }
   }
 
-  Future<void> _captureAndAnalyze() async {
+  // === Prevent bursts by cooldown timer ===
+  void _startCooldown() {
+    _capturing = true;
+    debugPrint("Cooldown started (2s)");
+    Future.delayed(const Duration(seconds: 2), () {
+      _capturing = false;
+      debugPrint("Re-armed for next capture");
+    });
+  }
+
+  // === Capture + analyze + store ===
+  Future<void> _captureImage() async {
     try {
       final shot = await _controller!.takePicture();
       final imagePath = await _saveImage(shot);
 
-      // --- Model calls (replace with your real ones) ---
-      final double impurityArea = await _runImpurityModel(imagePath);
-      final String health = await _runClassificationModel(imagePath);
+      final impurityArea = await _runImpurityModel(imagePath);
+      final health = await _runClassificationModel(imagePath);
       final adjustedImpurity = ((impurityArea / 0.9).clamp(0.0, 100.0)).toDouble();
       final quality = adjustedImpurity > 20 ? 'low' : 'high';
 
@@ -133,10 +164,11 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
         discolorationStatus: health,
         qualityStatus: quality,
       );
+
       await DatabaseHelper.instance.insertReport(report);
-      debugPrint('✅ Report saved: $imagePath');
+      debugPrint('Captured & saved report: $imagePath');
     } catch (e) {
-      debugPrint('⚠️ Error: $e');
+      debugPrint('Capture error: $e');
     }
   }
 
@@ -148,15 +180,12 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
     return path;
   }
 
-  // --- Placeholders for your models ---
   Future<double> _runImpurityModel(String imagePath) async {
-    // returns total impurity area (% of frame)
-    return 18.5;
+    return 18.7; // placeholder, replace with TFLite result
   }
 
   Future<String> _runClassificationModel(String imagePath) async {
-    // returns 'healthy' or 'unhealthy'
-    return 'healthy';
+    return "healthy"; // placeholder, replace with TFLite result
   }
 
   @override
@@ -167,17 +196,17 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_ready) return const Center(child: CircularProgressIndicator());
+    if (!_isReady) return const Center(child: CircularProgressIndicator());
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Scan Seaweed"),
-        backgroundColor: Colors.lightGreen,
+        title: const Text("Seaweed Scanner"),
+        backgroundColor: Colors.teal,
         actions: [
           IconButton(
             icon: const Icon(Icons.home_outlined),
             tooltip: 'Back to Home',
             onPressed: () {
-              // 🏠 Navigate to your HomeScreen
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -200,18 +229,26 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
           debugPrint('Total reports: ${reports.length}');
         },
       ),
-      body: Stack(children: [
-        CameraPreview(_controller!),
-        Center(
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.tealAccent, width: 3),
-            ),
-          ),
+      body: Stack(
+        children: [
+          CameraPreview(_controller!),
+          _buildGuideBox(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuideBox() {
+    return Center(
+      child: Container(
+        width: 250,
+        height: 250,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.tealAccent, width: 3),
+          color: Colors.transparent,
         ),
-      ]),
+      ),
     );
   }
 }
+

@@ -110,11 +110,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 child: Column(
                   children: [
-                    // Farm Name / Email field
+                    // Email field
                     TextField(
                       controller: _farmController,
                       decoration: const InputDecoration(
-                        labelText: "Farm Name / Email",
+                        labelText: "Email",
                         border: OutlineInputBorder(),
                       ),
                     ),
