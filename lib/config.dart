@@ -14,7 +14,7 @@ class AppConfig {
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    _apiBaseUrl = prefs.getString('apiBaseUrl') ?? 'http://10.102.162.102:3000/api';
+    _apiBaseUrl = prefs.getString('apiBaseUrl') ?? 'https://helga-sulfureous-atomically.ngrok-free.dev/api';
   }
 
   static String get apiBaseUrl => _apiBaseUrl!;
