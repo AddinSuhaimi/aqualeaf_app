@@ -3,6 +3,8 @@ import '../services/token_storage.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
+import 'package:aqualeaf_app/config.dart';
+import 'api_settings_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -19,6 +21,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
+    await AppConfig.init();  // ONLY FOR DEV, REMOVE IN PRODUCTION
     await Future.delayed(const Duration(seconds: 1)); // small splash delay
     final token = await TokenStorage.getToken();
 
@@ -47,9 +50,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: Colors.white,
-      body: Center(
+      body: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -59,6 +62,18 @@ class _SplashScreenState extends State<SplashScreen> {
           ],
         ),
       ),
+
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.teal,
+        child: const Icon(Icons.settings),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ApiSettingsScreen()),
+          );
+        },
+      ),
+
     );
   }
 }

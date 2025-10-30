@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import '../services/token_storage.dart';
 import 'species_selection_screen.dart';
 import 'home_screen.dart';
+import 'api_settings_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -156,6 +157,16 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Colors.teal,
+        child: const Icon(Icons.settings),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ApiSettingsScreen()),
+          );
+        },
       ),
     );
   }
