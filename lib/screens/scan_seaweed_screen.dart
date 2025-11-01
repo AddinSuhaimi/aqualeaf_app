@@ -441,14 +441,29 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
     super.dispose();
   }
 
+
+  // =======================================================
+  // ==================== UI BUILDERS ======================
+  // =======================================================
+
   @override
   Widget build(BuildContext context) {
     if (!_isReady) return const Center(child: CircularProgressIndicator());
 
+    const Color aquaBackground = Color(0xFFE0F7F7);
+    const Color darkTeal = Color(0xFF00796B);
+    const Color deepGreen = Color(0xFF2E7D32);
+
     return Scaffold(
+      backgroundColor: deepGreen,
       appBar: AppBar(
-        title: const Text("Seaweed Scanner"),
-        backgroundColor: Colors.teal,
+        backgroundColor: deepGreen,
+        elevation: 0,
+        title: const Text(
+          "Seaweed Scanner",
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+        ),
+        iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           IconButton(
             icon: const Icon(Icons.home_outlined),
@@ -461,35 +476,128 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
             },
           ),
           IconButton(
-            icon: Icon(_torchOn ? Icons.flash_on : Icons.flash_off),
+            icon: Icon(_torchOn ? Icons.flash_on : Icons.flash_off,
+                color: Colors.black),
             tooltip: 'Torch',
             onPressed: _toggleTorch,
           ),
         ],
       ),
-      body: Stack(
+
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          CameraPreview(_controller!),
-          _buildGuideBox(),
-          _buildHUD(),
-          if (_justCaptured)
-            Container(color: Colors.white.withValues(alpha: 0.3)),
-            Positioned(
-            bottom: 32,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: FloatingActionButton(
-                backgroundColor: _modelsLoaded ? Colors.teal : Colors.grey,
-                child: const Icon(Icons.camera_alt, size: 32, color: Colors.white),
-                onPressed: _modelsLoaded ? _handleManualCapture : null,
+          // === CAMERA PREVIEW ===
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                FittedBox(
+                  fit: BoxFit.cover,
+                  child: SizedBox(
+                    width: _controller!.value.previewSize!.height,
+                    height: _controller!.value.previewSize!.width,
+                    child: CameraPreview(_controller!),
+                  ),
+                ),
+
+                // ✅ Centered guide box
+                Center(
+                  child: Container(
+                    width: 280,
+                    height: 280,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: darkTeal.withValues(alpha: 0.8), width: 2),
+                      color: Colors.transparent,
+                    ),
+                  ),
+                ),
+
+                if (_justCaptured)
+                  Container(color: Colors.white.withValues(alpha: 0.3)),
+              ],
+            ),
+          ),
+
+          // === HUD BELOW CAMERA ===
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Motion: ${_latestMotion.toStringAsFixed(1)}%",
+                      style: const TextStyle(color: Colors.black87, fontSize: 14)),
+                  Text("Impurity: ${_lastImpurity?.toStringAsFixed(1)}%",
+                      style: const TextStyle(color: Colors.black87, fontSize: 14)),
+                  Text("Raw Impurity Area: ${_rawImpurityArea.toStringAsFixed(1)}",
+                      style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                  Text("Health: ${_lastHealth ?? '-'}",
+                      style: const TextStyle(color: Colors.black87, fontSize: 14)),
+
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: _justCaptured
+                              ? Colors.green
+                              : (!_canCapture
+                              ? Colors.orangeAccent
+                              : darkTeal),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _justCaptured
+                            ? "CAPTURED"
+                            : (!_canCapture ? "WAITING" : "READY"),
+                        style: TextStyle(
+                          color: _justCaptured
+                              ? Colors.green
+                              : (!_canCapture
+                              ? Colors.orangeAccent
+                              : darkTeal),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // === MANUAL CAPTURE BUTTON ===
+          Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: FloatingActionButton(
+              backgroundColor: aquaBackground,
+              child: const Icon(Icons.camera_alt, size: 32, color: Colors.black),
+              onPressed: _modelsLoaded ? _handleManualCapture : null,
             ),
           ),
         ],
       ),
     );
   }
+
 
   Widget _buildGuideBox() {
     return Center(
