@@ -2,114 +2,120 @@
 import 'dart:math' as math;
 import 'package:image/image.dart' as img;
 
-/// === IMAGE PREPROCESSING ===
-/// Converts an [img.Image] to a TFLite-compatible [1, height, width, 3] tensor.
-/// Values are normalized to 0–1 for float models.
-/// If your model is quantized (uint8), change the division to keep 0–255 values.
-List<List<List<List<double>>>> preprocessImage(img.Image image, int width, int height) {
-  // Resize to model input size
-  final resized = img.copyResize(image, width: width, height: height);
+/// =====================
+///  IMAGE PREPROCESSING
+/// =====================
 
-  // Channels-last layout (NHWC)
+/// Resize with letterboxing (keeps aspect ratio + gray padding)
+img.Image letterboxResize(img.Image src, int width, int height) {
+  final ratio = math.min(width / src.width, height / src.height);
+  final newW = (src.width * ratio).toInt();
+  final newH = (src.height * ratio).toInt();
+  final resized = img.copyResize(src, width: newW, height: newH);
+
+  final boxed = img.Image(width: width, height: height);
+  img.fill(boxed, color: img.ColorRgb8(114, 114, 114));
+
+  final dx = ((width - newW) / 2).toInt();
+  final dy = ((height - newH) / 2).toInt();
+  img.compositeImage(boxed, resized, dstX: dx, dstY: dy);
+
+  return boxed;
+}
+
+/// Converts an [img.Image] to a TFLite-compatible [1, height, width, 3] tensor.
+/// Normalized to 0–1 for float models.
+List<List<List<List<double>>>> preprocessImage(img.Image image, int width, int height) {
+  final resized = letterboxResize(image, width, height);
   return [
     List.generate(
       height,
-          (y) => List.generate(
-        width,
-            (x) {
-          final pixel = resized.getPixel(x, y);
-          return [
-            pixel.r / 255.0,
-            pixel.g / 255.0,
-            pixel.b / 255.0,
-          ];
-        },
-      ),
+          (y) => List.generate(width, (x) {
+        final pixel = resized.getPixel(x, y);
+        return [pixel.r / 255.0, pixel.g / 255.0, pixel.b / 255.0];
+      }),
     ),
   ];
 }
 
-/// === SIGMOID HELPER ===
-double sigmoid(double x) => 1.0 / (1.0 + math.exp(-x));
+/// =======================
+///  YOLOv8 DECODE HELPERS
+/// =======================
 
-/// === NON-MAX SUPPRESSION ===
-List<List<double>> nonMaxSuppression(List<List<double>> boxes, {double iouThreshold = 0.45}) {
-  boxes.sort((a, b) => b[4].compareTo(a[4]));
-  final picked = <List<double>>[];
-  while (boxes.isNotEmpty) {
-    final current = boxes.removeAt(0);
-    picked.add(current);
-    boxes.removeWhere((box) {
-      final x1 = math.max(current[0], box[0]);
-      final y1 = math.max(current[1], box[1]);
-      final x2 = math.min(current[2], box[2]);
-      final y2 = math.min(current[3], box[3]);
-      final inter = math.max(0, x2 - x1) * math.max(0, y2 - y1);
-      final areaA = (current[2] - current[0]) * (current[3] - current[1]);
-      final areaB = (box[2] - box[0]) * (box[3] - box[1]);
-      final union = areaA + areaB - inter;
-      return union <= 0 ? false : (inter / union) > iouThreshold;
-    });
-  }
-  return picked;
-}
+double sigmoid(double x) => 1 / (1 + math.exp(-x));
 
-/// === YOLO OUTPUT DECODER ===
-/// Works with ONNX→TF→TFLite models (no exp() on w/h, pixel-safe)
-/// Expects each detection row: [cx, cy, w, h, obj_conf, cls0, cls1, ...]
-List<List<double>> decodeYoloOutputFlexible(
-    dynamic output,
-    int W,
-    int H, {
-      double objThresh = 0.30,
-      double confThresh = 0.40,
-      double nmsIoU = 0.45,
-    }) {
-  final boxes = <List<double>>[];
-  final rows = (output as List)[0] as List;
+class YOLODecoder {
+  /// Decode YOLOv8 impurity model output [1,5,8400] with grid stride correction
+  static List<Map<String, double>> decodeImpurity(
+      dynamic pred, {
+        double confThreshold = 1e-8,
+        int imageW = 640,
+        int imageH = 640,
+      }) {
+    final boxes = <Map<String, double>>[];
 
-  for (final row in rows) {
-    final det = (row as List).map((v) => (v as num).toDouble()).toList();
-    if (det.length < 5) continue;
-
-    // Confidence processing
-    double obj = det[4];
-    if (obj < 0.0 || obj > 1.0) obj = sigmoid(obj);
-    if (obj < objThresh) continue;
-
-    double clsConf = 1.0;
-    if (det.length > 5) {
-      final clsScores = det.sublist(5);
-      double maxCls = clsScores.reduce(math.max);
-      if (maxCls < 0.0 || maxCls > 1.0) maxCls = sigmoid(maxCls);
-      clsConf = maxCls;
+    if (pred is List && pred.length == 1 && pred[0] is List) {
+      pred = pred[0];
     }
-    final conf = obj * clsConf;
-    if (conf < confThresh) continue;
 
-    // Box conversion (normalized or pixel)
-    double cx = det[0], cy = det[1], w = det[2], h = det[3];
-    if (cx <= 1.5 && cy <= 1.5) { cx *= W; cy *= H; }
-    if (w  <= 1.5 && h  <= 1.5) { w  *= W; h  *= H; }
+    if (pred is! List<List<double>>) {
+      print("⚠️ Unexpected shape: ${pred.runtimeType}");
+      return boxes;
+    }
 
-    double x1 = cx - w / 2.0;
-    double y1 = cy - h / 2.0;
-    double x2 = cx + w / 2.0;
-    double y2 = cy + h / 2.0;
+    final numChannels = pred.length;
+    final numAnchors = pred[0].length;
+    print("🧠 Decoding impurity model: $numChannels channels, $numAnchors anchors");
 
-    // Clip and sanity filter
-    x1 = x1.clamp(0.0, W.toDouble());
-    y1 = y1.clamp(0.0, H.toDouble());
-    x2 = x2.clamp(0.0, W.toDouble());
-    y2 = y2.clamp(0.0, H.toDouble());
+    // stride patterns: 80x80 + 40x40 + 20x20 = 8400
+    const strides = [8, 16, 32];
+    final gridSizes = [80, 40, 20];
+    int offset = 0;
 
-    final bw = x2 - x1;
-    final bh = y2 - y1;
-    if (bw < 4 || bh < 4) continue;
-    if (bw > W * 1.2 || bh > H * 1.2) continue;
+    for (int s = 0; s < strides.length; s++) {
+      final gridSize = gridSizes[s];
+      final stride = strides[s];
+      final numCells = gridSize * gridSize;
 
-    boxes.add([x1, y1, x2, y2, conf]);
+      for (int i = 0; i < numCells; i++) {
+        final idx = offset + i;
+        if (idx >= numAnchors) break;
+
+        final cx = (pred[0][idx]);
+        final cy = (pred[1][idx]);
+        final w  = (pred[2][idx]);
+        final h  = (pred[3][idx]);
+        final conf = pred[4][idx];
+
+        if (conf.isNaN || conf < confThreshold) continue;
+
+        // Convert grid-relative to pixel coordinates
+        final gridX = i % gridSize;
+        final gridY = i ~/ gridSize;
+
+        final px = (gridX + cx / gridSize) * stride;
+        final py = (gridY + cy / gridSize) * stride;
+        final pw = w * stride;
+        final ph = h * stride;
+
+        final x1 = (px - pw / 2).clamp(0.0, imageW.toDouble());
+        final y1 = (py - ph / 2).clamp(0.0, imageH.toDouble());
+        final x2 = (px + pw / 2).clamp(0.0, imageW.toDouble());
+        final y2 = (py + ph / 2).clamp(0.0, imageH.toDouble());
+
+        if ((x2 - x1) < 4 || (y2 - y1) < 4) continue;
+
+        boxes.add({'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2, 'conf': conf});
+      }
+
+      offset += numCells;
+    }
+
+    print("✅ Decoded ${boxes.length} impurity boxes");
+    return boxes;
   }
-
-  return nonMaxSuppression(boxes, iouThreshold: nmsIoU);
 }
+
+
+
+

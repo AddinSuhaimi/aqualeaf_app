@@ -278,14 +278,18 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
       final shot = await _controller!.takePicture();
       final imagePath = await _saveImage(shot);
 
-      final impurityArea = await _runImpurityModel(imagePath);
+      final result = await _runImpurityModel(imagePath);
+      final impurityPercent = result['impurity'] as double;
+      final annotatedPath = result['path'] as String;
+
       final health = await _runClassificationModel(imagePath);
-      final adjustedImpurity = ((impurityArea / 0.9).clamp(0.0, 100.0)).toDouble();
-      final quality = adjustedImpurity > 20 ? 'low' : 'high';
+      final quality = (impurityPercent > 12 || health.toLowerCase() == 'unhealthy')
+          ? 'bad'
+          : 'good';
 
       // Update HUD
       setState(() {
-        _lastImpurity = adjustedImpurity;
+        _lastImpurity = impurityPercent;
         _lastHealth = health;
       });
 
@@ -293,8 +297,8 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
         farmId: 'F001',
         speciesId: 'S001',
         timestamp: DateTime.now().toIso8601String(),
-        imageUrl: imagePath,
-        impurityLevel: adjustedImpurity,
+        imageUrl: annotatedPath,
+        impurityLevel: impurityPercent,
         discolorationStatus: health,
         qualityStatus: quality,
       );
@@ -314,18 +318,20 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
     return path;
   }
 
-  Future<double> _runImpurityModel(String imagePath) async {
-    if (!_modelsLoaded || _impurityInterpreter == null) return 0.0;
+  Future<Map<String, dynamic>> _runImpurityModel(String imagePath) async {
+    if (!_modelsLoaded || _impurityInterpreter == null) {
+      return {'impurity': 0.0, 'path': imagePath};
+    }
 
     try {
       final imageBytes = await File(imagePath).readAsBytes();
       final image = img.decodeImage(imageBytes)!;
+      final img.Image original = img.decodeImage(imageBytes)!;
 
       // === Get model input shape ===
       final inputShape = _impurityInterpreter!.getInputTensor(0).shape;
       final inputHeight = inputShape[1];
       final inputWidth = inputShape[2];
-
       debugPrint('📏 Impurity inputShape = $inputShape');
 
       // === Preprocess image (NHWC layout) ===
@@ -342,50 +348,154 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
       // === Run inference ===
       _impurityInterpreter!.run(input, output);
 
-      // === Normalize dynamic list ===
-      final safeOutput = (output)
-          .map((e) => (e as List)
-          .map((x) => (x as List).map((v) => (v as num).toDouble()).toList())
-          .toList())
+      // === Convert output safely ===
+      // The model returns [[[ [float x 8400] x 5 ]]]
+      final List<List<List<double>>> safeOutput = output
+          .map<List<List<double>>>(
+            (c) => (c as List)
+            .map<List<double>>(
+              (r) => (r as List)
+              .map<double>((v) => (v as num).toDouble())
+              .toList(),
+        )
+            .toList(),
+      )
           .toList();
 
-      // === Decode detections ===
-      final detections = decodeYoloOutputFlexible(
-        safeOutput,
-        inputWidth,
-        inputHeight,
-        objThresh: 0.30,
-        confThresh: 0.40,
-        nmsIoU: 0.45,
+      // === Decode impurity activation ===
+      final decoded = decodeImpurityActivation(safeOutput);
+      final impurityPercent = decoded['impurity']!;
+
+      // === Heatmap overlay (actual visualization) ===
+      final heatmap = img.Image(
+        width: original.width,
+        height: original.height,
       );
 
-      // === Compute impurity area (pixels) ===
-      double totalArea = 0.0;
-      for (final box in detections) {
-        final w = (box[2] - box[0]);
-        final h = (box[3] - box[1]);
-        totalArea += w * h;
+      // Normalize impurity activations for visualization
+      final activations = safeOutput[0][4]; // channel 4
+      final maxVal = activations.reduce(math.max);
+      final minVal = activations.reduce(math.min);
+      final scale = (maxVal - minVal).abs() < 1e-9 ? 1.0 : (1 / (maxVal - minVal));
+
+      for (int i = 0; i < activations.length; i++) {
+        final norm = ((activations[i] - minVal) * scale).clamp(0.0, 1.0);
+
+        // Map each activation to a grid cell on the 80×80 grid (approx 640/8 stride)
+        final stride = 8;
+        final x = (i % 80) * stride;
+        final y = (i ~/ 80) * stride;
+
+        // Red intensity = impurity activation
+        final color = img.ColorRgb8(
+          (255 * norm).toInt(),
+          (255 * (1 - norm)).toInt(),
+          0,
+        );
+
+        // Draw a small filled square
+        img.fillRect(
+          heatmap,
+          x1: x,
+          y1: y,
+          x2: x + stride,
+          y2: y + stride,
+          color: color,
+        );
       }
 
-      final estimatedSeaweedArea = 0.8 * (inputWidth * inputHeight);
-      final impurityPercent = ((totalArea / estimatedSeaweedArea) * 100.0).clamp(0.0, 100.0);
+      // Manually dim the heatmap to simulate transparency
+      for (final p in heatmap) {
+        final r = (p.r * 0.35).clamp(0, 255).toInt();
+        final g = (p.g * 0.35).clamp(0, 255).toInt();
+        final b = (p.b * 0.35).clamp(0, 255).toInt();
+        p
+          ..r = r
+          ..g = g
+          ..b = b;
+      }
 
-      // === Update debug HUD ===
-      setState(() => _rawImpurityArea = totalArea);
-
-      debugPrint(
-        '🧮 YOLO decoded boxes=${detections.length}, '
-            'totalArea=${totalArea.toStringAsFixed(1)} px², '
-            'guideBoxArea=${estimatedSeaweedArea.toStringAsFixed(1)} px² → '
-            'impurity=${impurityPercent.toStringAsFixed(2)}%',
+      // Blend the softened heatmap onto the original
+      img.compositeImage(
+        original,
+        heatmap,
+        dstX: 0,
+        dstY: 0,
+        blend: img.BlendMode.overlay, // smooth color blend
       );
 
-      return impurityPercent;
+      // Save heatmap composite
+      final heatmapPath = imagePath.replaceAll('.jpg', '_heatmap.jpg');
+      final heatmapBytes = img.encodeJpg(original, quality: 90);
+      await File(heatmapPath).writeAsBytes(heatmapBytes);
+
+
+      debugPrint('🧮 Impurity=${impurityPercent.toStringAsFixed(2)}% '
+          '(mean=${decoded['mean']}, max=${decoded['max']}, '
+          'active=${decoded['activeCount']})');
+
+      return {'impurity': impurityPercent, 'path': heatmapPath};
     } catch (e) {
       debugPrint('⚠️ Impurity model error: $e');
-      return 0.0;
+      return {'impurity': 0.0, 'path': imagePath};
     }
   }
+
+  /// Decode YOLOv8 impurity model output [1, 5, 8400]
+  /// using activation energy (channel 4 as impurity strength)
+  Map<String, double> decodeImpurityActivation(
+      List<List<List<double>>> rawOutput) {
+    // --- Step 1: Unwrap batch dim if needed ---
+    List<List<double>> pred;
+    if (rawOutput.length == 1) {
+      pred = rawOutput[0]; // shape [5, 8400]
+    } else {
+      pred = rawOutput.first; // fallback
+    }
+
+    final int numChannels = pred.length;
+    if (numChannels != 5) {
+      throw Exception("Expected 5 channels, got $numChannels");
+    }
+
+    final List<double> impurityVals = pred[4]; // channel 4 → impurity logits
+    final int numAnchors = impurityVals.length;
+
+    // --- Step 2: Compute stats safely ---
+    final double maxVal =
+    impurityVals.isNotEmpty ? impurityVals.reduce(math.max) : 0.0;
+    final double meanVal = impurityVals.isNotEmpty
+        ? impurityVals.reduce((a, b) => a + b) / numAnchors
+        : 0.0;
+
+    // --- Step 3: Threshold and count activations ---
+    final double thresh = math.max(0.1 * maxVal, 1e-7);
+    final int activeCount = impurityVals.where((v) => v > thresh).length;
+
+    // --- Step 4: Activation energy ---
+    final double totalEnergy =
+    impurityVals.fold<double>(0.0, (a, b) => a + b.abs());
+    final double normalizedEnergy =
+        totalEnergy / ((maxVal * numAnchors) + 1e-9);
+
+    // --- Step 5: Convert to impurity percentage ---
+    const double scaleFactor = 30.0; // tweak later if needed
+    final double impurityPercent =
+    (normalizedEnergy * scaleFactor * 100.0).clamp(0.0, 100.0);
+
+    // --- Step 6: Debug info ---
+    print("🧠 Decoding impurity model: $numChannels channels, $numAnchors anchors");
+    print("Activation stats → mean=$meanVal, max=$maxVal");
+    print("Activated cells: $activeCount / $numAnchors → impurity=$impurityPercent%");
+
+    return {
+      'impurity': impurityPercent,
+      'mean': meanVal,
+      'max': maxVal,
+      'activeCount': activeCount.toDouble(),
+    };
+  }
+
 
   Future<String> _runClassificationModel(String imagePath) async {
     if (!_modelsLoaded || _classificationInterpreter == null) return 'unknown';
