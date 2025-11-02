@@ -63,4 +63,18 @@ class DatabaseHelper {
     return await db.update('scan_report', {'synced': 1}, where: 'scan_id = ?', whereArgs: [scanId]);
   }
 
+  Future<List<ScanReport>> getRecentReports({int limit = 100}) async {
+    final db = await database;
+
+    // Fetch up to 100 most recent reports
+    final result = await db.query(
+      'scan_report',
+      orderBy: 'timestamp DESC',
+      limit: limit,
+    );
+
+    // Map each record to your ScanReport model
+    return result.map((e) => ScanReport.fromMap(e)).toList();
+  }
+
 }

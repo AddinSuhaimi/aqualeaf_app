@@ -12,6 +12,7 @@ import '../services/token_storage.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 import '../utils/yolo_preprocessor.dart';
 import 'dart:math' as math;
+import 'recent_captures_screen.dart';
 
 const double MOTION_TRIGGER_MIN = 5;  // must exceed this to consider a pass
 const double MOTION_TRIGGER_MAX = 40;  // above this, ignore as “too chaotic”
@@ -72,7 +73,7 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
 
     // Camera settings
     await _controller!.initialize();
-    await _controller!.setFlashMode(FlashMode.torch);
+    await _controller!.setFlashMode(FlashMode.off);
     await _controller!.setExposurePoint(null);         // center-weighted exposure
     await _controller!.setFocusMode(FocusMode.auto);   // maintain focus
     await _controller!.setExposureOffset(-0.5);
@@ -342,7 +343,7 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
       _impurityInterpreter!.run(input, output);
 
       // === Normalize dynamic list ===
-      final safeOutput = (output as List)
+      final safeOutput = (output)
           .map((e) => (e as List)
           .map((x) => (x as List).map((v) => (v as num).toDouble()).toList())
           .toList())
@@ -366,8 +367,8 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
         totalArea += w * h;
       }
 
-      final guideBoxArea = 0.8 * (inputWidth * inputHeight);
-      final impurityPercent = ((totalArea / guideBoxArea) * 100.0).clamp(0.0, 100.0);
+      final estimatedSeaweedArea = 0.8 * (inputWidth * inputHeight);
+      final impurityPercent = ((totalArea / estimatedSeaweedArea) * 100.0).clamp(0.0, 100.0);
 
       // === Update debug HUD ===
       setState(() => _rawImpurityArea = totalArea);
@@ -375,7 +376,7 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
       debugPrint(
         '🧮 YOLO decoded boxes=${detections.length}, '
             'totalArea=${totalArea.toStringAsFixed(1)} px², '
-            'guideBoxArea=${guideBoxArea.toStringAsFixed(1)} px² → '
+            'guideBoxArea=${estimatedSeaweedArea.toStringAsFixed(1)} px² → '
             'impurity=${impurityPercent.toStringAsFixed(2)}%',
       );
 
@@ -481,6 +482,16 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
             tooltip: 'Torch',
             onPressed: _toggleTorch,
           ),
+          IconButton(
+            icon: const Icon(Icons.image_outlined, color: Colors.black),
+            tooltip: 'Recent Captures',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const RecentCapturesScreen()),
+              );
+            },
+          ),
         ],
       ),
 
@@ -507,7 +518,7 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
                     width: 280,
                     height: 280,
                     decoration: BoxDecoration(
-                      border: Border.all(color: darkTeal.withValues(alpha: 0.8), width: 2),
+                      border: Border.all(color: darkTeal.withValues(alpha: 0.0), width: 2),
                       color: Colors.transparent,
                     ),
                   ),
@@ -594,83 +605,6 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-
-  Widget _buildGuideBox() {
-    return Center(
-      child: Container(
-        width: 280, // enlarged visible guide box
-        height: 280,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.tealAccent, width: 3),
-          color: Colors.transparent,
-        ),
-      ),
-    );
-  }
-
-  // === HUD Overlay ===
-  Widget _buildHUD() {
-    String status;
-    Color statusColor;
-
-    if (_justCaptured) {
-      status = "CAPTURED";
-      statusColor = Colors.greenAccent;
-    } else if (!_canCapture) {
-      status = "WAITING";
-      statusColor = Colors.orangeAccent;
-    } else {
-      status = "READY";
-      statusColor = Colors.tealAccent;
-    }
-
-    return Positioned(
-      top: 16,
-      left: 16,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.black54,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Existing stats
-            Text("Motion: ${_latestMotion.toStringAsFixed(1)}%",
-                style: const TextStyle(color: Colors.white, fontSize: 14)),
-
-            // 👇 Add these two new lines right below Coverage
-            Text("Impurity: ${_lastImpurity?.toStringAsFixed(1)}%",
-                style: const TextStyle(color: Colors.white, fontSize: 14)),
-            Text("Raw Impurity Area: ${_rawImpurityArea.toStringAsFixed(1)}",
-                style: const TextStyle(color: Colors.white70, fontSize: 13)),
-            Text("Health: ${_lastHealth ?? '-'}",
-                style: const TextStyle(color: Colors.white, fontSize: 14)),
-
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(status,
-                    style: TextStyle(
-                        color: statusColor, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }
