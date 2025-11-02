@@ -31,6 +31,7 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
   bool _modelsLoaded = false;
   double? _lastImpurity = 0.0;
   String? _lastHealth = "-";
+  String? _lastQuality = "-";
   Interpreter? _impurityInterpreter;
   Interpreter? _classificationInterpreter;
   double _rawImpurityArea = 0.0;
@@ -284,13 +285,14 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
 
       final health = await _runClassificationModel(imagePath);
       final quality = (impurityPercent > 12 || health.toLowerCase() == 'unhealthy')
-          ? 'bad'
-          : 'good';
+          ? 'BAD'
+          : 'GOOD';
 
       // Update HUD
       setState(() {
         _lastImpurity = impurityPercent;
         _lastHealth = health;
+        _lastQuality = quality;
       });
 
       final report = ScanReport(
@@ -664,10 +666,10 @@ class _ScanSeaweedScreenState extends State<ScanSeaweedScreen> {
                       style: const TextStyle(color: Colors.black87, fontSize: 14)),
                   Text("Impurity: ${_lastImpurity?.toStringAsFixed(1)}%",
                       style: const TextStyle(color: Colors.black87, fontSize: 14)),
-                  Text("Raw Impurity Area: ${_rawImpurityArea.toStringAsFixed(1)}",
-                      style: const TextStyle(color: Colors.black54, fontSize: 13)),
                   Text("Health: ${_lastHealth ?? '-'}",
                       style: const TextStyle(color: Colors.black87, fontSize: 14)),
+                  Text("Quality: ${_lastQuality ?? '-'}",
+                      style: const TextStyle(color: Colors.black87, fontSize: 15)),
 
                   const SizedBox(height: 6),
                   Row(
