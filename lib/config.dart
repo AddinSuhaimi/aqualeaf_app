@@ -14,7 +14,7 @@ class AppConfig {
 
   static Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
-    _apiBaseUrl = prefs.getString('apiBaseUrl') ?? 'https://helga-sulfureous-atomically.ngrok-free.dev/api';
+    _apiBaseUrl = prefs.getString('apiBaseUrl') ?? 'https://aqualeaf-api.vercel.app/api';
   }
 
   static String get apiBaseUrl => _apiBaseUrl!;
