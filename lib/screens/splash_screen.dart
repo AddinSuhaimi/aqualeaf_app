@@ -4,7 +4,6 @@ import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
 import 'package:aqualeaf_app/config.dart';
-import 'api_settings_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -21,22 +20,40 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _checkLoginStatus() async {
-    await AppConfig.init();  // ONLY FOR DEV, REMOVE IN PRODUCTION
+    await AppConfig.init();  // Only for development
     await Future.delayed(const Duration(seconds: 1)); // small splash delay
-    final token = await TokenStorage.getToken();
 
-    if (token == null) {
-      _goTo(const LoginScreen());
-      return;
-    }
+    final result = await ApiService.checkLoginStatus();
 
-    // Optional: verify token validity with backend
-    final response = await ApiService.fetchFarmDetails();
-    if (response != null && response['__unauthorized'] != true) {
-      _goTo(const HomeScreen());
-    } else {
-      await TokenStorage.clearToken();
-      _goTo(const LoginScreen());
+    if (!mounted) return;
+
+    switch (result["status"]) {
+      case "no_token":
+        _goTo(const LoginScreen());
+        break;
+
+      case "online_valid":
+        _goTo(const HomeScreen());
+        break;
+
+      case "offline_allowed":
+        _goTo(const HomeScreen());
+        break;
+
+      case "online_invalid":
+      // Token expired -> user must log in again
+        await TokenStorage.clearAll();
+        _goTo(const LoginScreen());
+        break;
+
+      case "server_error":
+      // Cannot reach server but token exists -> allow offline mode
+        _goTo(const HomeScreen());
+        break;
+
+      default:
+      // Fallback: allow offline mode
+        _goTo(const HomeScreen());
     }
   }
 
@@ -62,18 +79,6 @@ class _SplashScreenState extends State<SplashScreen> {
           ],
         ),
       ),
-
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.settings),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => ApiSettingsScreen()),
-          );
-        },
-      ),
-
     );
   }
 }

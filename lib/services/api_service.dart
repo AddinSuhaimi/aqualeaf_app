@@ -12,7 +12,7 @@ class ApiService {
       String email, String password) async {
 
     final url = Uri.parse("${AppConfig.apiBaseUrl}/login");
-    print("➡ POST $url");
+    print("POST $url");
 
     try {
       final response = await http.post(
@@ -45,16 +45,29 @@ class ApiService {
   static Future<Map<String, dynamic>?> fetchFarmDetails() async {
     final token = await TokenStorage.getToken();
 
-    if (token == null) {
-      print("No token found — user not logged in.");
-      return null;
+    if (token == null) return null;
+
+    //skip API call attempt if offline
+    final online = await _isOnline();
+    if (!online) {
+      final cached = await TokenStorage.getFarmDetails();
+
+      if (cached['farmName'] == null) {
+        return {"offline": true};
+      }
+
+      return {
+        "managerName": cached['managerName'],
+        "managerEmail": cached['managerEmail'],
+        "farmName": cached['farmName'],
+        "farmLocation": cached['farmLocation'],
+        "offline": true
+      };
     }
 
-    final url = Uri.parse("${AppConfig.apiBaseUrl}/farm-details");
-    print("GET $url");
-    print("Using Token: Bearer $token");
-
+    // Try online mode
     try {
+      final url = Uri.parse("${AppConfig.apiBaseUrl}/farm-details");
       final response = await http.get(
         url,
         headers: {
@@ -63,25 +76,102 @@ class ApiService {
         },
       );
 
-      print("Response ${response.statusCode}: ${response.body}");
-
+      // ONLINE VALID
       if (response.statusCode == 200) {
-        final json = jsonDecode(response.body);
-        print("Parsed farm details: $json");
-        return json;
+        final data = jsonDecode(response.body);
+
+        // Save to offline cache
+        await TokenStorage.saveFarmDetails(data);
+
+        return data;
       }
 
+      // ONLINE UNAUTHORIZED
       if (response.statusCode == 401) {
-        print("Unauthorized — token invalid or expired.");
         return {"__unauthorized": true};
       }
+    } catch (_) {
+      // network or server unreachable → offline fallback
+    }
 
-      print("Unexpected status code: ${response.statusCode}");
-      return null;
+    // OFFLINE MODE -> load cached farm details
+    final cached = await TokenStorage.getFarmDetails();
 
-    } catch (e) {
-      print("Error during fetchFarmDetails: $e");
-      return null;
+    // If no saved data -> show minimal offline UI
+    if (cached['farmName'] == null) return {"offline": true};
+
+    return {
+      "managerName": cached['managerName'],
+      "managerEmail": cached['managerEmail'],
+      "farmName": cached['farmName'],
+      "farmLocation": cached['farmLocation'],
+      "offline": true
+    };
+  }
+
+  static Future<Map<String, dynamic>> checkLoginStatus() async {
+
+    final token = await TokenStorage.getToken();
+
+    // 1. No saved token -> user never logged in
+    if (token == null) {
+      return {"status": "no_token"};
+    }
+
+    // 2. Check internet connectivity
+    final online = await _isOnline();
+
+    // ---- ONLINE MODE ----
+    if (online) {
+      final url = Uri.parse("${AppConfig.apiBaseUrl}/auth/verify");
+
+      try {
+        final response = await http.get(
+          url,
+          headers: {"Authorization": "Bearer $token"},
+        );
+
+        print(response.statusCode);
+
+        if (response.statusCode == 200) {
+          return {"status": "online_valid"};
+        }
+
+        // Token invalid → force login
+        return {"status": "online_invalid"};
+
+      } catch (e) {
+        // Server unreachable but internet exists
+        return {"status": "server_error"};
+      }
+    }
+
+    // ---- OFFLINE MODE ----
+    // Token exists, so allow offline usage
+    return {
+      "status": "offline_allowed",
+    };
+  }
+
+  // online status check helper
+  static Future<bool> _isOnline() async {
+    try {
+      final result = await http.get(Uri.parse("https://google.com"))
+          .timeout(const Duration(seconds: 3));
+      return result.statusCode == 200;
+    } catch (_) {
+      return false;
     }
   }
+
+  static Future<bool> isOnline() async {
+    try {
+      final resp = await http.get(Uri.parse("https://google.com"))
+          .timeout(const Duration(seconds: 2));
+      return resp.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
 }

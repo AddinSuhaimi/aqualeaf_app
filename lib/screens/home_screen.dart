@@ -136,6 +136,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }
 
+                if (data['offline'] == true) {
+                  return _cardContainer(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Farm Account Details (Offline Mode)",
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        _tile(
+                          icon: Icons.person_outline,
+                          title: "Manager: ${data['managerName'] ?? '-'}",
+                          subtitle: "Email: ${data['managerEmail'] ?? '-'}",
+                        ),
+                        const Divider(),
+                        _tile(
+                          icon: Icons.place_outlined,
+                          title: "Farm: ${data['farmName'] ?? '-'}",
+                          subtitle: "Location: ${data['farmLocation'] ?? '-'}",
+                        ),
+                        const Divider(),
+                        _tile(
+                          icon: Icons.settings_outlined,
+                          title: 'Selected Seaweed Species:',
+                          subtitle: formatSpecies(_species),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
                 if (data['__unauthorized'] == true) {
                   // Token invalid/expired -> log out
                   WidgetsBinding.instance.addPostFrameCallback((_) {
