@@ -13,8 +13,9 @@ class AppConfig {
   static String? _apiBaseUrl;
 
   static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    _apiBaseUrl = prefs.getString('apiBaseUrl') ?? 'https://aqualeaf-api.vercel.app/api';
+    //final prefs = await SharedPreferences.getInstance();
+    // prefs.getString('apiBaseUrl') ??
+    _apiBaseUrl = 'https://aqualeaf-api.vercel.app/api';
   }
 
   static String get apiBaseUrl => _apiBaseUrl!;

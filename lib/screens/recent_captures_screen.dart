@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../db/database_helper.dart';
 import '../models/scan_report.dart';
+import '../screens/scan_seaweed_screen.dart';
 
 class RecentCapturesScreen extends StatefulWidget {
   const RecentCapturesScreen({super.key});
@@ -40,6 +41,15 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
         backgroundColor: aquaBackground,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const ScanSeaweedScreen()),
+            );
+          },
+        ),
       ),
       backgroundColor: aquaBackground,
       body: _isLoading
