@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/token_storage.dart';
+import '../services/secure_storage.dart';
 import 'home_screen.dart';
+import 'type_selection_screen.dart';
 
 class SpeciesSelectionScreen extends StatefulWidget {
   const SpeciesSelectionScreen({super.key});
@@ -55,7 +56,7 @@ class _SpeciesSelectionScreenState extends State<SpeciesSelectionScreen> {
   final Set<String> expandedInfo = {};
 
   Future<void> _selectSpecies(BuildContext context, String species) async {
-    await TokenStorage.saveSpecies(species); // store locally
+    await SecureStorage.saveSpecies(species); // store locally
     if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -64,7 +65,7 @@ class _SpeciesSelectionScreenState extends State<SpeciesSelectionScreen> {
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      MaterialPageRoute(builder: (_) => const TypeSelectionScreen()),
     );
   }
 

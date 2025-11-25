@@ -10,7 +10,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../db/database_helper.dart';
 import '../models/scan_report.dart';
-import 'token_storage.dart';
+import 'secure_storage.dart';
 import '../utils/yolo_preprocessor.dart';
 
 const double MOTION_TRIGGER_MIN = 5;  // must exceed this to consider a pass
@@ -103,7 +103,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
   }
 
   Future<void> _loadModels() async {
-    _species = await TokenStorage.getSpecies(); // e.g., 'green', 'brown', 'red'
+    _species = await SecureStorage.getSpecies(); // e.g., 'green', 'brown', 'red'
     if (!_isActive) return;
 
     try {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/token_storage.dart';
+import '../services/secure_storage.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
@@ -42,7 +42,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
       case "online_invalid":
       // Token expired -> user must log in again
-        await TokenStorage.clearAll();
+        await SecureStorage.clearAll();
         _goTo(const LoginScreen());
         break;
 

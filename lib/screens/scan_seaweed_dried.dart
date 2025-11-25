@@ -4,16 +4,16 @@ import 'home_screen.dart';
 import 'recent_captures_screen.dart';
 import '../services/seaweed_scanner_base.dart';
 
-class ScanSeaweedScreen extends StatefulWidget {
-  const ScanSeaweedScreen({super.key});
+class ScanSeaweedDried extends StatefulWidget {
+  const ScanSeaweedDried({super.key});
 
   @override
-  State<ScanSeaweedScreen> createState() => _ScanSeaweedScreenState();
+  State<ScanSeaweedDried> createState() => _ScanSeaweedDriedState();
 }
 
-class _ScanSeaweedScreenState extends SeaweedScannerBaseState<ScanSeaweedScreen> {
+class _ScanSeaweedDriedState extends SeaweedScannerBaseState<ScanSeaweedDried> {
   @override
-  ScanMode get scanMode => ScanMode.fresh;
+  ScanMode get scanMode => ScanMode.dried;
 
   @override
   Widget build(BuildContext context) {
@@ -81,7 +81,7 @@ class _ScanSeaweedScreenState extends SeaweedScannerBaseState<ScanSeaweedScreen>
                     width: controller!.value.previewSize!.height,
                     height: controller!.value.previewSize!.width,
                     child:
-                        controller != null &&
+                    controller != null &&
                         controller!.value.isInitialized &&
                         mounted
                         ? CameraPreview(controller!)
@@ -131,7 +131,7 @@ class _ScanSeaweedScreenState extends SeaweedScannerBaseState<ScanSeaweedScreen>
                       style: const TextStyle(color: Colors.black87, fontSize: 14)),
                   Text("Impurity: ${lastImpurity?.toStringAsFixed(1)}%",
                       style: const TextStyle(color: Colors.black87, fontSize: 14)),
-                  Text("Health: ${lastHealth ?? '-'}",
+                  Text("Appearance: ${lastHealth ?? '-'}",
                       style: const TextStyle(color: Colors.black87, fontSize: 14)),
                   Text("Quality: ${lastQuality ?? '-'}",
                       style: const TextStyle(color: Colors.black87, fontSize: 15)),
@@ -186,4 +186,3 @@ class _ScanSeaweedScreenState extends SeaweedScannerBaseState<ScanSeaweedScreen>
     );
   }
 }
-

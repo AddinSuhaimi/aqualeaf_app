@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import '../services/token_storage.dart';
+import '../services/secure_storage.dart';
 import 'login_screen.dart';
 import 'species_selection_screen.dart';
-import 'scan_seaweed_screen.dart';
+import 'type_selection_screen.dart';
+import 'scan_seaweed_fresh.dart';
+import 'scan_seaweed_dried.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,18 +17,21 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Future<Map<String, dynamic>?>? _future;
   String? _species;
+  String? _type;
 
   @override
   void initState() {
     super.initState();
     _future = ApiService.fetchFarmDetails();
-    _loadSpecies();
+    _loadSelections();
   }
 
-  Future<void> _loadSpecies() async {
-    final s = await TokenStorage.getSpecies();
+  Future<void> _loadSelections() async {
+    final s = await SecureStorage.getSpecies();
+    final t = await SecureStorage.getType();
     setState(() {
       _species = s;
+      _type = t;
     });
   }
 
@@ -39,14 +44,22 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String formatType(String? t) {
+    switch (t) {
+      case 'fresh': return 'Fresh Seaweed';
+      case 'dried': return 'Dried Seaweed';
+      default: return 'Not selected';
+    }
+  }
+
   Future<void> _refresh() async {
     final f = ApiService.fetchFarmDetails();
     setState(() => _future = f);
   }
 
   void _logout() async {
-    await TokenStorage.clearToken();
-    await TokenStorage.clearSpecies();
+    await SecureStorage.clearToken();
+    await SecureStorage.clearSpecies();
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -102,6 +115,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: const Text('Set Seaweed Species'),
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Top "Set Seaweed Type" button
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6A1B9A),
+                  foregroundColor: Colors.white,
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                onPressed: () {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (_) => const TypeSelectionScreen()),
+                  );
+                },
+                child: const Text('Set Seaweed Type (Fresh or Dried)'),
+              ),
+            ),
+
             const SizedBox(height: 16),
 
             FutureBuilder<Map<String, dynamic>?>(
@@ -162,6 +200,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           title: 'Selected Seaweed Species:',
                           subtitle: formatSpecies(_species),
                         ),
+                        const Divider(),
+                        _tile(
+                          icon: Icons.category_outlined,
+                          title: 'Selected Seaweed Type:',
+                          subtitle: formatType(_type),
+                        ),
                       ],
                     ),
                   );
@@ -179,7 +223,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 final managerEmail = data['managerEmail'] ?? '-';
                 final farmName = data['farmName'] ?? '-';
                 final farmLocation = data['farmLocation'] ?? '-';
-                final species = data['species'] ?? '-';
                 final uploadStatus = data['uploadStatus'] ?? 'Unknown';
                 final lastUpdated = data['lastUpdated'] ?? '';
 
@@ -216,6 +259,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const Divider(),
                       _tile(
+                        icon: Icons.category_outlined,
+                        title: 'Selected Seaweed Type:',
+                        subtitle: formatType(_type),
+                      ),
+                      const Divider(),
+                      _tile(
                         icon: Icons.sync_outlined,
                         title: 'Results Upload Status',
                         subtitle:
@@ -240,11 +289,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                onPressed: () {
-                  Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ScanSeaweedScreen()),
-                  );
+                onPressed: () async {
+                  final type = await SecureStorage.getType();
+                  if (!context.mounted) return;
+                  if (type == "dried") {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ScanSeaweedDried()),
+                    );
+                  } else {
+                    // Default: fresh
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ScanSeaweedFresh()),
+                    );
+                  }
                 },
                 child: const Text(
                   'Scan Seaweed',

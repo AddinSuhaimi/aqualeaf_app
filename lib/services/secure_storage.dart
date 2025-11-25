@@ -1,6 +1,6 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-class TokenStorage {
+class SecureStorage {
   static const _storage = FlutterSecureStorage();
   static const _keyToken = 'auth_token';
   static const _keySpecies = 'seaweed_species';
@@ -8,6 +8,7 @@ class TokenStorage {
   static const _keyFarmLocation = 'farm_location';
   static const _keyManagerName = 'manager_name';
   static const _keyManagerEmail = 'manager_email';
+  static const _keyType = 'seaweed_type';
 
   // Save token
   static Future<void> saveToken(String token) async {
@@ -54,4 +55,13 @@ class TokenStorage {
 
   static Future<void> clearAll() async =>
       _storage.deleteAll();
+
+  static Future<void> saveType(String type) async =>
+      _storage.write(key: _keyType, value: type);
+
+  static Future<String?> getType() async =>
+      _storage.read(key: _keyType);
+
+  static Future<void> clearType() async =>
+      _storage.delete(key: _keyType);
 }

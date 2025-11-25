@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config.dart';
-import 'token_storage.dart';
+import 'secure_storage.dart';
 
 class ApiService {
 
@@ -43,14 +43,14 @@ class ApiService {
   // FETCH FARM DETAILS (protected)
   // ------------------------
   static Future<Map<String, dynamic>?> fetchFarmDetails() async {
-    final token = await TokenStorage.getToken();
+    final token = await SecureStorage.getToken();
 
     if (token == null) return null;
 
     //skip API call attempt if offline
     final online = await _isOnline();
     if (!online) {
-      final cached = await TokenStorage.getFarmDetails();
+      final cached = await SecureStorage.getFarmDetails();
 
       if (cached['farmName'] == null) {
         return {"offline": true};
@@ -81,7 +81,7 @@ class ApiService {
         final data = jsonDecode(response.body);
 
         // Save to offline cache
-        await TokenStorage.saveFarmDetails(data);
+        await SecureStorage.saveFarmDetails(data);
 
         return data;
       }
@@ -95,7 +95,7 @@ class ApiService {
     }
 
     // OFFLINE MODE -> load cached farm details
-    final cached = await TokenStorage.getFarmDetails();
+    final cached = await SecureStorage.getFarmDetails();
 
     // If no saved data -> show minimal offline UI
     if (cached['farmName'] == null) return {"offline": true};
@@ -111,7 +111,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> checkLoginStatus() async {
 
-    final token = await TokenStorage.getToken();
+    final token = await SecureStorage.getToken();
 
     // 1. No saved token -> user never logged in
     if (token == null) {

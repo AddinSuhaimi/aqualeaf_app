@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import '../services/token_storage.dart';
+import '../services/secure_storage.dart';
 import 'species_selection_screen.dart';
 import 'home_screen.dart';
 import 'api_settings_screen.dart';
@@ -26,10 +26,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (result != null && result['success'] == true) {
       final token = result['token'];
-      await TokenStorage.saveToken(token); // save securely
+      await SecureStorage.saveToken(token); // save securely
       print("Stored Token: $token");
 
-      final savedToken = await TokenStorage.getToken();
+      final savedToken = await SecureStorage.getToken();
       print("Retrieved token: $savedToken");
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       // Check if species already chosen
-      final species = await TokenStorage.getSpecies();
+      final species = await SecureStorage.getSpecies();
 
       if (!mounted) return;
 

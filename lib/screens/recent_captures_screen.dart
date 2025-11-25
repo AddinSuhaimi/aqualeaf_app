@@ -2,7 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../db/database_helper.dart';
 import '../models/scan_report.dart';
-import '../screens/scan_seaweed_screen.dart';
+import '../services/secure_storage.dart';
+import '../screens/scan_seaweed_fresh.dart';
+import '../screens/scan_seaweed_dried.dart';
 
 class RecentCapturesScreen extends StatefulWidget {
   const RecentCapturesScreen({super.key});
@@ -43,11 +45,21 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const ScanSeaweedScreen()),
-            );
+          onPressed: () async {
+            final type = await SecureStorage.getType();
+            if (!context.mounted) return;
+            if (type == 'dried') {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const ScanSeaweedDried()),
+              );
+            } else {
+              // default to fresh
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const ScanSeaweedFresh()),
+              );
+            }
           },
         ),
       ),
