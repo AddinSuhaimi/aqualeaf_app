@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+
 import '../db/database_helper.dart';
-import '../models/scan_report.dart';
+
 import '../services/secure_storage.dart';
 import '../screens/scan_seaweed_fresh.dart';
 import '../screens/scan_seaweed_dried.dart';
@@ -14,7 +15,8 @@ class RecentCapturesScreen extends StatefulWidget {
 }
 
 class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
-  List<ScanReport> _reports = [];
+  List<dynamic> _reports = [];     // can hold fresh OR dried
+  String _type = 'fresh';
   bool _isLoading = true;
 
   @override
@@ -25,8 +27,17 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
 
   Future<void> _loadReports() async {
     final db = DatabaseHelper.instance;
-    final reports = await db.getRecentReports(limit: 100);
+    final type = await SecureStorage.getType() ?? "fresh";
+
+    List<dynamic> reports;
+    if (type == 'dried') {
+      reports = await db.getRecentDriedReports(limit: 100);
+    } else {
+      reports = await db.getRecentFreshReports(limit: 100);
+    }
+
     setState(() {
+      _type = type;
       _reports = reports;
       _isLoading = false;
     });
@@ -38,23 +49,19 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Recent Captures",
-            style: TextStyle(color: Colors.black)),
+        title: const Text("Recent Captures", style: TextStyle(color: Colors.black)),
         backgroundColor: aquaBackground,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () async {
-            final type = await SecureStorage.getType();
-            if (!context.mounted) return;
-            if (type == 'dried') {
+          onPressed: () {
+            if (_type == 'dried') {
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const ScanSeaweedDried()),
               );
             } else {
-              // default to fresh
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const ScanSeaweedFresh()),
@@ -70,8 +77,7 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
           ? const Center(child: Text("No captures found."))
           : GridView.builder(
         padding: const EdgeInsets.all(12),
-        gridDelegate:
-        const SliverGridDelegateWithFixedCrossAxisCount(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 6,
           mainAxisSpacing: 6,
@@ -87,10 +93,7 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
             onTap: () => _openDetails(context, report),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.file(
-                imageFile,
-                fit: BoxFit.cover,
-              ),
+              child: Image.file(imageFile, fit: BoxFit.cover),
             ),
           );
         },
@@ -98,7 +101,9 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
     );
   }
 
-  void _openDetails(BuildContext context, ScanReport report) {
+  void _openDetails(BuildContext context, dynamic report) {
+    final bool isFresh = _type == "fresh";
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -109,27 +114,39 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
         padding: const EdgeInsets.all(16),
         child: SingleChildScrollView(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 "Captured: ${DateTime.parse(report.timestamp).toLocal()}",
-                style:
-                const TextStyle(fontSize: 14, color: Colors.black54),
+                style: const TextStyle(fontSize: 14, color: Colors.black54),
               ),
               const SizedBox(height: 10),
+
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: Image.file(File(report.imageUrl)),
               ),
+
               const SizedBox(height: 12),
-              Text("Impurity: ${report.impurityLevel?.toStringAsFixed(1) ?? '-'}%",
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600)),
-              Text("Health: ${report.discolorationStatus ?? '-'}",
-                  style: const TextStyle(fontSize: 16)),
-              Text("Quality: ${report.qualityStatus ?? '-'}",
-                  style: const TextStyle(fontSize: 16)),
+
+              // COMMON
+              Text(
+                "Impurity: ${report.impurityStatus.toStringAsFixed(1)}%",
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+
+              // DIFFERENT FOR FRESH VS DRIED
+              Text(
+                isFresh
+                    ? "Health: ${report.healthStatus}"
+                    : "Appearance: ${report.appearance}",
+                style: const TextStyle(fontSize: 16),
+              ),
+
+              Text(
+                "Quality: ${report.qualityStatus}",
+                style: const TextStyle(fontSize: 16),
+              ),
             ],
           ),
         ),
@@ -137,3 +154,4 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
     );
   }
 }
+

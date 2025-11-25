@@ -4,6 +4,7 @@ class SecureStorage {
   static const _storage = FlutterSecureStorage();
   static const _keyToken = 'auth_token';
   static const _keySpecies = 'seaweed_species';
+  static const _keyFarmId = 'farm_id';
   static const _keyFarmName = 'farm_name';
   static const _keyFarmLocation = 'farm_location';
   static const _keyManagerName = 'manager_name';
@@ -27,6 +28,7 @@ class SecureStorage {
 
   // Save farm details from API response
   static Future<void> saveFarmDetails(Map<String, dynamic> data) async {
+    await _storage.write(key: _keyFarmId, value: data['farmId']);
     await _storage.write(key: _keyFarmName, value: data['farmName']);
     await _storage.write(key: _keyFarmLocation, value: data['farmLocation']);
     await _storage.write(key: _keyManagerName, value: data['managerName']);
@@ -42,6 +44,10 @@ class SecureStorage {
       'managerEmail': await _storage.read(key: _keyManagerEmail),
     };
   }
+
+  // Read farm_id for scanner usage
+  static Future<String?> getFarmId() async =>
+      _storage.read(key: _keyFarmId);
 
   // Seaweed species methods
   static Future<void> saveSpecies(String species) async =>

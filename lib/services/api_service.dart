@@ -57,6 +57,7 @@ class ApiService {
       }
 
       return {
+        "farmId": cached['farmId'],
         "managerName": cached['managerName'],
         "managerEmail": cached['managerEmail'],
         "farmName": cached['farmName'],
@@ -101,6 +102,7 @@ class ApiService {
     if (cached['farmName'] == null) return {"offline": true};
 
     return {
+      "farmId": cached['farmId'],
       "managerName": cached['managerName'],
       "managerEmail": cached['managerEmail'],
       "farmName": cached['farmName'],

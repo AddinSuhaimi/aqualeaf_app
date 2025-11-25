@@ -9,7 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../db/database_helper.dart';
-import '../models/scan_report.dart';
+import '../models/scan_report_fresh.dart';
+import '../models/scan_report_dried.dart';
 import 'secure_storage.dart';
 import '../utils/yolo_preprocessor.dart';
 
@@ -28,7 +29,6 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
   String? _lastQuality = "-";
   Interpreter? _impurityInterpreter;
   Interpreter? _classificationInterpreter;
-  double _rawImpurityArea = 0.0;
   bool _torchOn = false;
   final List<Timer> _activeTimers = [];
 
@@ -112,10 +112,16 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
       // For now both modes use the same mapping.
       // TODO: after done dried models, branch on scanMode == ScanMode.dried.
       final modelPath = switch (_species) {
-        'green' => 'assets/models/GSW_best.tflite',
-        'red' => 'assets/models/RSW_best.tflite',
-        'brown' => 'assets/models/BSW_best.tflite',
-        _ => 'assets/models/GSW_best.tflite'
+        'green' => scanMode == ScanMode.fresh
+            ? 'assets/models/GSW_best.tflite'
+            : 'assets/models/GSW_best.tflite',
+        'red' => scanMode == ScanMode.fresh
+            ? 'assets/models/RSW_best.tflite'
+            : 'assets/models/RSW_best.tflite',
+        'brown' => scanMode == ScanMode.fresh
+            ? 'assets/models/BSW_best.tflite'
+            : 'assets/models/BSW_best.tflite',
+        _ => 'assets/models/GSW_best.tflite',
       };
 
       _classificationInterpreter = await Interpreter.fromAsset(modelPath);
@@ -350,18 +356,41 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
         _lastQuality = quality;
       });
 
-      final report = ScanReport(
-        farmId: 'F001',
-        speciesId: 'S001',
-        timestamp: DateTime.now().toIso8601String(),
-        imageUrl: annotatedPath,
-        impurityLevel: impurityPercent,
-        discolorationStatus: health,
-        qualityStatus: quality,
-      );
+      final farmIdStr = await SecureStorage.getFarmId();
+      final speciesStr = await SecureStorage.getSpecies();
 
-      await DatabaseHelper.instance.insertReport(report);
-      debugPrint('Captured & saved report: $imagePath');
+      final farmId = int.parse(farmIdStr ?? "0");
+      final speciesId = mapSpeciesToId(speciesStr);
+
+      // === Branch based on fresh or dried mode ===
+      if (scanMode == ScanMode.fresh) {
+        final report = ScanReportFresh(
+          farmId: farmId,
+          speciesId: speciesId,
+          timestamp: DateTime.now().toIso8601String(),
+          imageUrl: annotatedPath,
+          impurityStatus: impurityPercent,
+          healthStatus: health,              // healthy / unhealthy
+          qualityStatus: quality,            // GOOD / BAD
+        );
+
+        await DatabaseHelper.instance.insertFreshReport(report);
+        debugPrint('Fresh report saved.');
+      } else {
+        final report = ScanReportDried(
+          farmId: farmId,
+          speciesId: speciesId,
+          timestamp: DateTime.now().toIso8601String(),
+          imageUrl: annotatedPath,
+          impurityStatus: impurityPercent,
+          appearance: health,                // satisfactory / unsatisfactory
+          qualityStatus: quality,            // GOOD / BAD
+        );
+
+        await DatabaseHelper.instance.insertDriedReport(report);
+        debugPrint('Dried report saved.');
+      }
+
     } catch (e) {
       debugPrint('Capture error: $e');
     } finally {
@@ -628,6 +657,19 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
     try {
       await _controller?.stopImageStream();
     } catch (_) {}
+  }
+
+  int mapSpeciesToId(String? species) {
+    switch (species) {
+      case 'red':
+        return 1;
+      case 'brown':
+        return 2;
+      case 'green':
+        return 3;
+      default:
+        return 0; // fallback for safety
+    }
   }
 
   @override
