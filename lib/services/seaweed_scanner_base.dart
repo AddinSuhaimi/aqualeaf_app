@@ -344,7 +344,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
           ? health.toLowerCase() == 'unhealthy'
           : health.toLowerCase() == 'unsatisfactory';
 
-      final quality = (impurityPercent > 12 || isBadClass)
+      final quality = (impurityPercent > 5 || isBadClass)
           ? 'BAD'
           : 'GOOD';
 
