@@ -59,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _logout() async {
-    await SecureStorage.clearToken();
+    await SecureStorage.clearTokens();
     await SecureStorage.clearSpecies();
     if (!mounted) return;
     Navigator.pushReplacement(

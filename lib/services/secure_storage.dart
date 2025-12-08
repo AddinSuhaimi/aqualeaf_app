@@ -10,20 +10,29 @@ class SecureStorage {
   static const _keyManagerName = 'manager_name';
   static const _keyManagerEmail = 'manager_email';
   static const _keyType = 'seaweed_type';
+  static const _keyAccess = 'access_token';
+  static const _keyRefresh = 'refresh_token';
 
-  // Save token
-  static Future<void> saveToken(String token) async {
-    await _storage.write(key: _keyToken, value: token);
+  // Save tokens
+  static Future<void> saveTokens(String access, String refresh) async {
+    await _storage.write(key: _keyAccess, value: access);
+    await _storage.write(key: _keyRefresh, value: refresh);
   }
 
-  // Read token
-  static Future<String?> getToken() async {
-    return await _storage.read(key: _keyToken);
+  // Update only access token after refresh
+  static Future<void> saveAccessToken(String token) async {
+    await _storage.write(key: _keyAccess, value: token);
   }
 
-  // Delete token (logout)
-  static Future<void> clearToken() async {
-    await _storage.delete(key: _keyToken);
+  static Future<String?> getAccessToken() async =>
+      _storage.read(key: _keyAccess);
+
+  static Future<String?> getRefreshToken() async =>
+      _storage.read(key: _keyRefresh);
+
+  static Future<void> clearTokens() async {
+    await _storage.delete(key: _keyAccess);
+    await _storage.delete(key: _keyRefresh);
   }
 
   // Save farm details from API response

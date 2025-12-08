@@ -25,12 +25,11 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (result != null && result['success'] == true) {
-      final token = result['token'];
-      await SecureStorage.saveToken(token); // save securely
-      print("Stored Token: $token");
-
-      final savedToken = await SecureStorage.getToken();
-      print("Retrieved token: $savedToken");
+      final accessToken = result['accessToken'];
+      final refreshToken = result['refreshToken'];
+      await SecureStorage.saveTokens(accessToken, refreshToken); // save securely
+      print("Stored Access Token: $accessToken");
+      print("Stored Refresh Token: $refreshToken");
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("✅ Login successful")),

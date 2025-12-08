@@ -25,34 +25,32 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final result = await ApiService.checkLoginStatus();
 
+    final status = result["status"];
+
     if (!mounted) return;
 
-    switch (result["status"]) {
+    switch (status) {
+
+    // Never logged in OR refresh token expired
       case "no_token":
+      case "invalid":
+        await SecureStorage.clearAll(); // clear tokens, species, cached data if you want
         _goTo(const LoginScreen());
         break;
 
-      case "online_valid":
+    // Access token is valid OR was successfully refreshed
+      case "valid":
+      case "refreshed": // if you choose to return this separately
         _goTo(const HomeScreen());
         break;
 
+    // User has logged in before, but is currently offline
       case "offline_allowed":
         _goTo(const HomeScreen());
         break;
 
-      case "online_invalid":
-      // Token expired -> user must log in again
-        await SecureStorage.clearAll();
-        _goTo(const LoginScreen());
-        break;
-
-      case "server_error":
-      // Cannot reach server but token exists -> allow offline mode
-        _goTo(const HomeScreen());
-        break;
-
+    // Fallback: be generous and treat as offline-allowed
       default:
-      // Fallback: allow offline mode
         _goTo(const HomeScreen());
     }
   }

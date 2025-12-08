@@ -24,7 +24,7 @@ class ApiService {
         }),
       );
 
-      print("⬅ Response ${response.statusCode}: ${response.body}");
+      print("Response ${response.statusCode}: ${response.body}");
 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
@@ -39,11 +39,71 @@ class ApiService {
     }
   }
 
+  // Method to refresh access token
+  static Future<bool> refreshAccessToken() async {
+    final refresh = await SecureStorage.getRefreshToken();
+    if (refresh == null) return false;
+
+    final url = Uri.parse("${AppConfig.apiBaseUrl}/refresh");
+
+    try {
+      final res = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"refreshToken": refresh}),
+      );
+
+      print("Refresh response: ${res.statusCode} ${res.body}");
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final newAccess = data["accessToken"];
+
+        // update stored token
+        await SecureStorage.saveAccessToken(newAccess);
+
+        print("Access token refreshed");
+        return true;
+      }
+
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Helper method for automatically refreshing access tokens
+  static Future<http.Response> _authorizedGet(String endpoint) async {
+    String? token = await SecureStorage.getAccessToken();
+
+    final url = Uri.parse("${AppConfig.apiBaseUrl}$endpoint");
+
+    var res = await http.get(
+      url,
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    // If access token expired, try refresh token
+    if (res.statusCode == 401) {
+      final refreshed = await refreshAccessToken();
+
+      if (refreshed) {
+        // retry request with new token
+        token = await SecureStorage.getAccessToken();
+        res = await http.get(
+          url,
+          headers: {"Authorization": "Bearer $token"},
+        );
+      }
+    }
+    return res;
+  }
+
   // ------------------------
   // FETCH FARM DETAILS (protected)
   // ------------------------
   static Future<Map<String, dynamic>?> fetchFarmDetails() async {
-    final token = await SecureStorage.getToken();
+    final token = await SecureStorage.getAccessToken();
 
     if (token == null) return null;
 
@@ -68,14 +128,7 @@ class ApiService {
 
     // Try online mode
     try {
-      final url = Uri.parse("${AppConfig.apiBaseUrl}/farm-details");
-      final response = await http.get(
-        url,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer $token",
-        },
-      );
+      final response = await _authorizedGet("/farm-details");
 
       // ONLINE VALID
       if (response.statusCode == 200) {
@@ -112,47 +165,35 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> checkLoginStatus() async {
+    final access = await SecureStorage.getAccessToken();
+    final refresh = await SecureStorage.getRefreshToken();
 
-    final token = await SecureStorage.getToken();
-
-    // 1. No saved token -> user never logged in
-    if (token == null) {
+    // No tokens at all: user never logged in/haven't logged in the last 7 days
+    if (refresh == null) {
       return {"status": "no_token"};
     }
 
-    // 2. Check internet connectivity
+    // Check internet connection
     final online = await _isOnline();
 
-    // ---- ONLINE MODE ----
+    // ===== ONLINE MODE =====
     if (online) {
-      final url = Uri.parse("${AppConfig.apiBaseUrl}/auth/verify");
+      // Try verifying access token by hitting backend OR simply try auto-refresh.
+      // Best approach with refresh token system:
+      //   → just immediately attempt to refresh access token.
+      final refreshed = await refreshAccessToken();
 
-      try {
-        final response = await http.get(
-          url,
-          headers: {"Authorization": "Bearer $token"},
-        );
-
-        print(response.statusCode);
-
-        if (response.statusCode == 200) {
-          return {"status": "online_valid"};
-        }
-
-        // Token invalid → force login
-        return {"status": "online_invalid"};
-
-      } catch (e) {
-        // Server unreachable but internet exists
-        return {"status": "server_error"};
+      if (refreshed) {
+        return {"status": "valid"};   // user stays logged in
+      } else {
+        return {"status": "invalid"}; // refresh token expired → must login again
       }
     }
 
-    // ---- OFFLINE MODE ----
-    // Token exists, so allow offline usage
-    return {
-      "status": "offline_allowed",
-    };
+    // ===== OFFLINE MODE =====
+    // Access token cannot be validated, but refresh token exists.
+    // That means the user SHOULD be allowed to continue in offline mode.
+    return {"status": "offline_allowed"};
   }
 
   // online status check helper
