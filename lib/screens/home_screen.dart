@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/secure_storage.dart';
+import '../services/sync_service.dart';
 import 'login_screen.dart';
 import 'species_selection_screen.dart';
 import 'type_selection_screen.dart';
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<Map<String, dynamic>?>? _future;
   String? _species;
   String? _type;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -56,6 +58,37 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _refresh() async {
     final f = ApiService.fetchFarmDetails();
     setState(() => _future = f);
+  }
+
+  Future<void> _manualSync() async {
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      await SyncService.syncPendingReports();
+
+      // After a successful sync, re-fetch farm details so uploadStatus/lastUpdated update
+      final f = ApiService.fetchFarmDetails();
+      setState(() {
+        _future = f;
+      });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sync completed successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sync failed: $e')),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isSyncing = false;
+      });
+    }
   }
 
   void _logout() async {
@@ -206,7 +239,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         const Text(
                           "Farm Account Details (Offline Mode)",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         _tile(
                           icon: Icons.person_outline,
@@ -251,6 +285,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 final uploadStatus = data['uploadStatus'] ?? 'Unknown';
                 final lastUpdated = data['lastUpdated'] ?? '';
 
+                final effectiveUploadStatus =
+                _isSyncing ? 'Syncing pending results…' : uploadStatus;
+
                 return _cardContainer(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,11 +326,65 @@ class _HomeScreenState extends State<HomeScreen> {
                         subtitle: formatType(_type),
                       ),
                       const Divider(),
-                      _tile(
-                        icon: Icons.sync_outlined,
-                        title: 'Results Upload Status',
-                        subtitle:
-                        '$uploadStatus\n${lastUpdated.isNotEmpty ? "Last updated: $lastUpdated" : ""}',
+
+                      // === Upload status + Sync Now button in one row ===
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Status text (with icon) on the left
+                          Expanded(
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.sync_outlined),
+                              title: const Text(
+                                'Results Upload Status',
+                                style: TextStyle(fontWeight: FontWeight.w600),
+                              ),
+                              subtitle: Text(
+                                '$effectiveUploadStatus\n'
+                                    '${lastUpdated.isNotEmpty ? "Last updated: $lastUpdated" : ""}',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Sync Now button on the right
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFFA000), // amber
+                              foregroundColor: Colors.white,
+                              elevation: 3,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            onPressed: _isSyncing ? null : _manualSync,
+                            icon: _isSyncing
+                                ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white),
+                              ),
+                            )
+                                : const Icon(
+                              Icons.cloud_upload_outlined,
+                              size: 18,
+                            ),
+                            label: Text(
+                              _isSyncing ? 'Syncing…' : 'Sync Now',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-
 import '../db/database_helper.dart';
-
 import '../services/secure_storage.dart';
 import '../screens/scan_seaweed_fresh.dart';
 import '../screens/scan_seaweed_dried.dart';
+import '../utils/string_extensions.dart';
 
 class RecentCapturesScreen extends StatefulWidget {
   const RecentCapturesScreen({super.key});
@@ -41,6 +40,11 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
       _reports = reports;
       _isLoading = false;
     });
+  }
+
+  String capitalize(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
   }
 
   @override
@@ -138,8 +142,8 @@ class _RecentCapturesScreenState extends State<RecentCapturesScreen> {
               // DIFFERENT FOR FRESH VS DRIED
               Text(
                 isFresh
-                    ? "Health: ${report.healthStatus}"
-                    : "Appearance: ${report.appearance}",
+                    ? "Health: ${capitalize(report.healthStatus)}"
+                    : "Appearance: ${capitalize(report.appearance)}",
                 style: const TextStyle(fontSize: 16),
               ),
 

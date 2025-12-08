@@ -35,6 +35,13 @@ class ScanReportFresh {
     };
   }
 
+  Map<String, dynamic> toUploadMap() {
+    final map = toMap();
+    map.remove('scan_id');
+    map.remove('synced');
+    return map;
+  }
+
   factory ScanReportFresh.fromMap(Map<String, dynamic> map) {
     return ScanReportFresh(
       scanId: map['scan_id'],
@@ -45,7 +52,7 @@ class ScanReportFresh {
       impurityStatus: map['impurity_status'],
       healthStatus: map['health_status'],
       qualityStatus: map['quality_status'],
-      synced: map['synced'],
+      synced: map['synced'] as int? ?? 0,
     );
   }
 }

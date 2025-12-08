@@ -147,4 +147,36 @@ class DatabaseHelper {
       whereArgs: [scanId],
     );
   }
+
+  Future<void> markFreshListAsSynced(List<int> scanIds) async {
+    final db = await instance.database;
+    final batch = db.batch();
+
+    for (final id in scanIds) {
+      batch.update(
+        'scan_report_fresh',
+        {'synced': 1},
+        where: 'scan_id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    await batch.commit(noResult: true);
+  }
+
+  Future<void> markDriedListAsSynced(List<int> scanIds) async {
+    final db = await instance.database;
+    final batch = db.batch();
+
+    for (final id in scanIds) {
+      batch.update(
+        'scan_report_dried',
+        {'synced': 1},
+        where: 'scan_id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    await batch.commit(noResult: true);
+  }
 }

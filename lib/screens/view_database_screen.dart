@@ -35,6 +35,31 @@ class _ViewDatabaseScreenState extends State<ViewDatabaseScreen> {
     });
   }
 
+  String capitalize(String value) {
+    if (value.isEmpty) return value;
+    return value[0].toUpperCase() + value.substring(1);
+  }
+
+  // Small badge widget for sync status
+  Widget _syncBadge(int synced) {
+    final isSynced = synced == 1;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isSynced ? Colors.green[100] : Colors.orange[100],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        isSynced ? 'Synced' : 'Pending',
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: isSynced ? Colors.green[800] : Colors.orange[800],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -75,12 +100,13 @@ class _ViewDatabaseScreenState extends State<ViewDatabaseScreen> {
         title: Text("Fresh • ${r.qualityStatus}"),
         subtitle: Text(
           "Impurity: ${r.impurityStatus.toStringAsFixed(1)}%\n"
-              "Health: ${r.healthStatus}\n"
+              "Health: ${capitalize(r.healthStatus)}\n"
               "SpeciesID: ${r.speciesId}  FarmID: ${r.farmId}\n"
               "${r.timestamp}",
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
+        trailing: _syncBadge(r.synced),
         onTap: () => _openDetails(context, r),
       ),
     );
@@ -94,12 +120,13 @@ class _ViewDatabaseScreenState extends State<ViewDatabaseScreen> {
         title: Text("Dried • ${r.qualityStatus}"),
         subtitle: Text(
           "Impurity: ${r.impurityStatus.toStringAsFixed(1)}%\n"
-              "Appearance: ${r.appearance}\n"
+              "Appearance: ${capitalize(r.appearance)}\n"
               "SpeciesID: ${r.speciesId}  FarmID: ${r.farmId}\n"
               "${r.timestamp}",
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
         ),
+        trailing: _syncBadge(r.synced),
         onTap: () => _openDetails(context, r),
       ),
     );
@@ -124,6 +151,8 @@ class _ViewDatabaseScreenState extends State<ViewDatabaseScreen> {
 
   /// POPUP DETAIL VIEWER
   void _openDetails(BuildContext context, dynamic report) {
+    final bool isSynced = report.synced == 1;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -141,6 +170,17 @@ class _ViewDatabaseScreenState extends State<ViewDatabaseScreen> {
                   "Timestamp: ${report.timestamp}",
                   style: const TextStyle(fontSize: 14),
                 ),
+                const SizedBox(height: 8),
+
+                Text(
+                  "Sync status: ${isSynced ? "Synced to cloud" : "Pending upload"}",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: isSynced ? Colors.green[700] : Colors.orange[700],
+                  ),
+                ),
+
                 const SizedBox(height: 12),
 
                 ClipRRect(
