@@ -1,5 +1,6 @@
 class ScanReportFresh {
   final int? scanId;
+  final String clientUuid;
   final int farmId;
   final int speciesId;
   final String timestamp;
@@ -11,6 +12,7 @@ class ScanReportFresh {
 
   ScanReportFresh({
     this.scanId,
+    required this.clientUuid,
     required this.farmId,
     required this.speciesId,
     required this.timestamp,
@@ -24,6 +26,7 @@ class ScanReportFresh {
   Map<String, dynamic> toMap() {
     return {
       'scan_id': scanId,
+      'client_uuid': clientUuid,
       'farm_id': farmId,
       'species_id': speciesId,
       'timestamp': timestamp,
@@ -45,6 +48,7 @@ class ScanReportFresh {
   factory ScanReportFresh.fromMap(Map<String, dynamic> map) {
     return ScanReportFresh(
       scanId: map['scan_id'],
+      clientUuid: map['client_uuid'],
       farmId: map['farm_id'],
       speciesId: map['species_id'],
       timestamp: map['timestamp'],

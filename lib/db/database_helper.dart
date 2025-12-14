@@ -30,6 +30,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE scan_report_fresh (
         scan_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_uuid TEXT NOT NULL,
         farm_id INTEGER NOT NULL,
         species_id INTEGER NOT NULL,
         timestamp TEXT NOT NULL,
@@ -45,6 +46,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE scan_report_dried (
         scan_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_uuid TEXT NOT NULL,
         farm_id INTEGER NOT NULL,
         species_id INTEGER NOT NULL,
         timestamp TEXT NOT NULL,

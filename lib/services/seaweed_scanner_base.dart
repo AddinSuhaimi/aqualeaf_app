@@ -7,6 +7,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../db/database_helper.dart';
 import '../models/scan_report_fresh.dart';
@@ -364,7 +365,11 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
 
       // === Branch based on fresh or dried mode ===
       if (scanMode == ScanMode.fresh) {
+
+        final uuid = const Uuid().v4();     // idempotency key
+
         final report = ScanReportFresh(
+          clientUuid: uuid,
           farmId: farmId,
           speciesId: speciesId,
           timestamp: DateTime.now().toIso8601String(),
@@ -377,7 +382,11 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
         await DatabaseHelper.instance.insertFreshReport(report);
         debugPrint('Fresh report saved.');
       } else {
+
+        final uuid = const Uuid().v4();     // idempotency key
+
         final report = ScanReportDried(
+          clientUuid: uuid,
           farmId: farmId,
           speciesId: speciesId,
           timestamp: DateTime.now().toIso8601String(),
