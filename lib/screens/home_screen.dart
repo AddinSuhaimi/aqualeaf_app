@@ -8,6 +8,7 @@ import 'type_selection_screen.dart';
 import 'scan_seaweed_fresh.dart';
 import 'scan_seaweed_dried.dart';
 import 'view_database_screen.dart';
+import '../utils/date_format.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -68,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       await SyncService.syncPendingReports();
 
-      // After a successful sync, re-fetch farm details so uploadStatus/lastUpdated update
+      // After a successful sync, re-fetch farm details so uploadStatus/lastSynced update
       final f = ApiService.fetchFarmDetails();
       setState(() {
         _future = f;
@@ -238,14 +239,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          "Farm Account Details (Offline Mode)",
+                          "Farm Details (Offline Mode)",
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         _tile(
                           icon: Icons.person_outline,
-                          title: "Manager: ${data['managerName'] ?? '-'}",
-                          subtitle: "Email: ${data['managerEmail'] ?? '-'}",
+                          title: "Email: ${data['managerEmail'] ?? '-'}",
                         ),
                         const Divider(),
                         _tile(
@@ -278,15 +278,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   return const SizedBox.shrink();
                 }
 
-                final managerName = data['managerName'] ?? '-';
-                final managerEmail = data['managerEmail'] ?? '-';
                 final farmName = data['farmName'] ?? '-';
                 final farmLocation = data['farmLocation'] ?? '-';
-                final uploadStatus = data['uploadStatus'] ?? 'Unknown';
-                final lastUpdated = data['lastUpdated'] ?? '';
-
-                final effectiveUploadStatus =
-                _isSyncing ? 'Syncing pending results…' : uploadStatus;
+                final lastSyncedRaw = data['lastSynced'];
+                final lastSyncedText = formatTimestamp(lastSyncedRaw);
 
                 return _cardContainer(
                   child: Column(
@@ -295,17 +290,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Padding(
                         padding: EdgeInsets.only(bottom: 8),
                         child: Text(
-                          'Farm Account Details',
+                          'Farm Details',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
-                      _tile(
-                        icon: Icons.person_outline,
-                        title: 'Manager: $managerName',
-                        subtitle: 'Email: $managerEmail',
                       ),
                       const Divider(),
                       _tile(
@@ -337,12 +327,11 @@ class _HomeScreenState extends State<HomeScreen> {
                               contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.sync_outlined),
                               title: const Text(
-                                'Results Upload Status',
+                                'Last Synced',
                                 style: TextStyle(fontWeight: FontWeight.w600),
                               ),
                               subtitle: Text(
-                                '$effectiveUploadStatus\n'
-                                    '${lastUpdated.isNotEmpty ? "Last updated: $lastUpdated" : ""}',
+                                    lastSyncedText,
                               ),
                             ),
                           ),

@@ -118,7 +118,6 @@ class ApiService {
 
       return {
         "farmId": cached['farmId'],
-        "managerName": cached['managerName'],
         "managerEmail": cached['managerEmail'],
         "farmName": cached['farmName'],
         "farmLocation": cached['farmLocation'],
@@ -156,7 +155,6 @@ class ApiService {
 
     return {
       "farmId": cached['farmId'],
-      "managerName": cached['managerName'],
       "managerEmail": cached['managerEmail'],
       "farmName": cached['farmName'],
       "farmLocation": cached['farmLocation'],

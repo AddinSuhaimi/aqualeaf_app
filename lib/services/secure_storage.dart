@@ -2,16 +2,16 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorage {
   static const _storage = FlutterSecureStorage();
-  static const _keyToken = 'auth_token';
   static const _keySpecies = 'seaweed_species';
   static const _keyFarmId = 'farm_id';
   static const _keyFarmName = 'farm_name';
   static const _keyFarmLocation = 'farm_location';
-  static const _keyManagerName = 'manager_name';
   static const _keyManagerEmail = 'manager_email';
   static const _keyType = 'seaweed_type';
   static const _keyAccess = 'access_token';
   static const _keyRefresh = 'refresh_token';
+  static const _keyLastUpdated = 'lastUpdated';
+  static const _keyLastSynced  = 'lastSynced';
 
   // Save tokens
   static Future<void> saveTokens(String access, String refresh) async {
@@ -40,8 +40,9 @@ class SecureStorage {
     await _storage.write(key: _keyFarmId, value: data['farmId']);
     await _storage.write(key: _keyFarmName, value: data['farmName']);
     await _storage.write(key: _keyFarmLocation, value: data['farmLocation']);
-    await _storage.write(key: _keyManagerName, value: data['managerName']);
     await _storage.write(key: _keyManagerEmail, value: data['managerEmail']);
+    await _storage.write(key: _keyLastUpdated, value: data['lastUpdated']);
+    await _storage.write(key: _keyLastSynced, value: data['lastSynced']);
   }
 
   // Read farm details (offline)
@@ -49,8 +50,9 @@ class SecureStorage {
     return {
       'farmName': await _storage.read(key: _keyFarmName),
       'farmLocation': await _storage.read(key: _keyFarmLocation),
-      'managerName': await _storage.read(key: _keyManagerName),
       'managerEmail': await _storage.read(key: _keyManagerEmail),
+      'lastUpdated': await _storage.read(key: _keyLastUpdated),
+      'lastSynced': await _storage.read(key: _keyLastSynced),
     };
   }
 
