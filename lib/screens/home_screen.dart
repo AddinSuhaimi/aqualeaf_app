@@ -17,7 +17,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
   Future<Map<String, dynamic>?>? _future;
   String? _species;
   String? _type;
@@ -28,7 +28,11 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _future = ApiService.fetchFarmDetails();
     _loadSelections();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncAndRefresh(showSnackbar: false);
+    });
   }
+
 
   Future<void> _loadSelections() async {
     final s = await SecureStorage.getSpecies();
@@ -61,8 +65,17 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _future = f);
   }
 
-  Future<void> _manualSync() async {
-    setState(() {
+  Future<void> _syncAndRefresh({bool showSnackbar = true}) async {
+
+    if (_isSyncing) return;
+
+    // skip sync if offline
+    final online = await ApiService.isOnline();
+    if (!online) {
+      return;
+    }
+
+      setState(() {
       _isSyncing = true;
     });
 
@@ -75,20 +88,23 @@ class _HomeScreenState extends State<HomeScreen> {
         _future = f;
       });
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sync completed successfully')),
-      );
+      if (showSnackbar && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sync completed successfully')),
+        );
+      }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sync failed: $e')),
-      );
+      if (showSnackbar && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sync failed: $e')),
+        );
+      }
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isSyncing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
     }
   }
 
@@ -243,10 +259,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold),
                         ),
-                        _tile(
-                          icon: Icons.person_outline,
-                          title: "Email: ${data['managerEmail'] ?? '-'}",
-                        ),
                         const Divider(),
                         _tile(
                           icon: Icons.place_outlined,
@@ -327,7 +339,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.sync_outlined),
                               title: const Text(
-                                'Last Synced',
+                                'Last Uploaded',
                                 style: TextStyle(fontWeight: FontWeight.w600),
                               ),
                               subtitle: Text(
@@ -350,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
-                            onPressed: _isSyncing ? null : _manualSync,
+                            onPressed: _isSyncing ? null : () => _syncAndRefresh(showSnackbar: true),
                             icon: _isSyncing
                                 ? const SizedBox(
                               width: 16,

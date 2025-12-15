@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
+import 'services/connectivity_sync_watcher.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ConnectivitySyncWatcher.instance.start();
   runApp(const AquaLeafApp());
 }
 
