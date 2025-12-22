@@ -46,12 +46,26 @@ class _ScanSeaweedDriedState extends SeaweedScannerBaseState<ScanSeaweedDried> {
               );
             },
           ),
+
+          // Motion capture toggle
+          IconButton(
+            icon: Icon(
+              autoCaptureEnabled ? Icons.motion_photos_on : Icons.motion_photos_off,
+              color: Colors.black,
+            ),
+            tooltip: autoCaptureEnabled
+                ? 'Motion capture ON (tap to disable)'
+                : 'Motion capture OFF (manual only)',
+            onPressed: toggleMotionCapture,
+          ),
+
           IconButton(
             icon: Icon(torchOn ? Icons.flash_on : Icons.flash_off,
                 color: Colors.black),
             tooltip: 'Torch',
             onPressed: toggleTorch,
           ),
+
           IconButton(
             icon: const Icon(Icons.image_outlined, color: Colors.black),
             tooltip: 'Recent Captures',
@@ -127,14 +141,16 @@ class _ScanSeaweedDriedState extends SeaweedScannerBaseState<ScanSeaweedDried> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Motion: ${latestMotion.toStringAsFixed(1)}%",
-                      style: const TextStyle(color: Colors.black87, fontSize: 14)),
                   Text("Impurity: ${lastImpurity?.toStringAsFixed(1)}%",
                       style: const TextStyle(color: Colors.black87, fontSize: 14)),
                   Text("Appearance: ${lastHealth ?? '-'}",
                       style: const TextStyle(color: Colors.black87, fontSize: 14)),
                   Text("Quality: ${lastQuality ?? '-'}",
                       style: const TextStyle(color: Colors.black87, fontSize: 15)),
+                  Text(
+                    "Auto-Capture: ${autoCaptureEnabled ? 'ON' : 'OFF'}",
+                    style: const TextStyle(color: Colors.black87, fontSize: 14),
+                  ),
 
                   const SizedBox(height: 6),
                   Row(

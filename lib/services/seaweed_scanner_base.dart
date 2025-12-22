@@ -50,6 +50,9 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
   // Live stats for HUD
   double _latestMotion = 0.0;
 
+  // Auto capture toggle
+  bool _autoCaptureEnabled = false;
+
   ScanMode get scanMode;
 
   CameraController? get controller => _controller;
@@ -62,6 +65,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
   bool get justCaptured => _justCaptured;
   double get latestMotion => _latestMotion;
   bool get canCapture => _canCapture;
+  bool get autoCaptureEnabled => _autoCaptureEnabled;
 
   @override
   void initState() {
@@ -77,6 +81,68 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
     await _controller!.setFlashMode(_torchOn ? FlashMode.torch : FlashMode.off);
     if (!mounted || !_isActive) return;
     setState(() {});
+  }
+
+  Future<void> toggleMotionCapture() async {
+    if (!_isActive) return;
+
+    // If turning ON, show confirmation popup first
+    if (!_autoCaptureEnabled) {
+      if (!mounted) return;
+
+      final confirmed = await showDialog<bool>(
+        context: super.context,
+        barrierDismissible: false,
+        builder: (ctx) {
+          return AlertDialog(
+            title: const Text("Enable Automatic Capture?"),
+            content: const Text(
+              "Before enabling motion-triggered automatic capture, please ensure your phone is mounted on a stable stand/tripod.\n\n"
+                  "This helps reduce shaking and prevents false captures.\n\n"
+                  "Do you want to turn ON automatic capture now?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text("Cancel"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text("Confirm"),
+              ),
+            ],
+          );
+        },
+      );
+
+      // If user cancels, do nothing
+      if (confirmed != true) return;
+    }
+
+    // Toggle state
+    if (!mounted) return;
+    setState(() {
+      _autoCaptureEnabled = !_autoCaptureEnabled;
+
+      // If user disables auto-capture, ensure manual capture is usable immediately.
+      if (!_autoCaptureEnabled) {
+        _canCapture = true;
+      }
+    });
+
+    // Optional feedback
+    if (mounted && _isActive) {
+      ScaffoldMessenger.of(super.context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _autoCaptureEnabled
+                ? "Automatic capture: ON"
+                : "Automatic capture: OFF (manual only)",
+          ),
+          duration: const Duration(seconds: 1),
+        ),
+      );
+    }
   }
 
   Future<void> _initCamera() async {
@@ -233,7 +299,8 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
     });
 
     // Trigger capture only when allowed
-    if (_canCapture &&
+    if (_autoCaptureEnabled &&
+        _canCapture &&
         avgMotion > MOTION_TRIGGER_MIN &&
         avgMotion < MOTION_TRIGGER_MAX &&
         !_isCapturing &&
