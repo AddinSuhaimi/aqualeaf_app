@@ -26,16 +26,27 @@ class ApiService {
 
       print("Response ${response.statusCode}: ${response.body}");
 
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        print("Login failed: ${response.body}");
-        return null;
-      }
+      final Map<String, dynamic> body = jsonDecode(response.body);
 
+      if (response.statusCode == 200) {
+        // Login successful
+        return {
+          "success": true,
+          "data": body,
+        };
+      } else {
+        // Login failed, but return server message
+        return {
+          "success": false,
+          "message": body['message'] ?? 'Login failed',
+        };
+      }
     } catch (e) {
       print("Error connecting to API during login: $e");
-      return null;
+      return {
+        "success": false,
+        "message": "Connection error. Please try again.",
+      };
     }
   }
 

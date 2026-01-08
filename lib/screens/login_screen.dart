@@ -25,8 +25,16 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (result != null && result['success'] == true) {
-      final accessToken = result['accessToken'];
-      final refreshToken = result['refreshToken'];
+      final data = result['data'];
+
+      final accessToken = data['accessToken'] as String?;
+      final refreshToken = data['refreshToken'] as String?;
+      if (accessToken == null || refreshToken == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ Invalid login response")),
+        );
+        return;
+      }
       await SecureStorage.saveTokens(accessToken, refreshToken); // save securely
       print("Stored Access Token: $accessToken");
       print("Stored Refresh Token: $refreshToken");
@@ -52,8 +60,13 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } else {
+      final errorMessage = result?['message'] ?? 'Login failed';
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("❌ Login failed")),
+        SnackBar(
+          content: Text("❌ $errorMessage"),
+          backgroundColor: Colors.red.shade600,
+        ),
       );
     }
   }

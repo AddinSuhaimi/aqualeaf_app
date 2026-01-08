@@ -407,15 +407,43 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                   ),
                 ),
                 onPressed: () async {
+                  final species = await SecureStorage.getSpecies();
                   final type = await SecureStorage.getType();
+
                   if (!context.mounted) return;
+
+                  final missingSpecies = (species == null || species.isEmpty);
+                  final missingType = (type == null || type.isEmpty);
+
+                  if (missingSpecies || missingType) {
+                    final missingText = [
+                      if (missingSpecies) "Seaweed Species",
+                      if (missingType) "Seaweed Type (Fresh/Dried)",
+                    ].join(" and ");
+
+                    await showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text("Selection Required"),
+                        content: Text("Please select $missingText before scanning."),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("OK"),
+                          ),
+                        ],
+                      ),
+                    );
+                    return; // ✅ block navigation
+                  }
+
+                  // ✅ proceed as normal
                   if (type == "dried") {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const ScanSeaweedDried()),
                     );
                   } else {
-                    // Default: fresh
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(builder: (_) => const ScanSeaweedFresh()),
