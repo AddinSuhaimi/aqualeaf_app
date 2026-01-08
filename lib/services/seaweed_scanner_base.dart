@@ -53,6 +53,9 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
   // Auto capture toggle
   bool _autoCaptureEnabled = false;
 
+  // Adjustable impurity threshold
+  double impurityThreshold = 3.0;
+
   ScanMode get scanMode;
 
   CameraController? get controller => _controller;
@@ -72,6 +75,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
     super.initState();
     _initCamera();
     _loadModels();
+    _loadThreshold();
   }
 
   Future<void> toggleTorch() async {
@@ -145,6 +149,12 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
     }
   }
 
+  Future<void> _loadThreshold() async {
+    final v = await SecureStorage.getImpurityThresholdPercent();
+    if (!mounted) return;
+    setState(() => impurityThreshold = v);
+  }
+
   Future<void> _initCamera() async {
     final cameras = await availableCameras();
     if (!_isActive) return;
@@ -176,8 +186,6 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
     try {
       _impurityInterpreter = await Interpreter.fromAsset('assets/models/impurity_best.tflite');
 
-      // For now both modes use the same mapping.
-      // TODO: after done dried models, branch on scanMode == ScanMode.dried.
       final modelPath = switch (_species) {
         'green' => scanMode == ScanMode.fresh
             ? 'assets/models/GSW_best.tflite'
@@ -412,7 +420,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
           ? health.toLowerCase() == 'unhealthy'
           : health.toLowerCase() == 'unsatisfactory';
 
-      final quality = (impurityPercent > 5 || isBadClass)
+      final quality = (impurityPercent >= impurityThreshold || isBadClass)
           ? 'BAD'
           : 'GOOD';
 
@@ -530,6 +538,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
       final decoded = decodeImpurityActivation(safeOutput);
       final impurityPercent = decoded['impurity']!;
 
+      /*
       // === Heatmap overlay (actual visualization) ===
       final heatmap = img.Image(
         width: original.width,
@@ -598,7 +607,9 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
           '(mean=${decoded['mean']}, max=${decoded['max']}, '
           'active=${decoded['activeCount']})');
 
-      return {'impurity': impurityPercent, 'path': heatmapPath};
+      */
+
+      return {'impurity': impurityPercent, 'path': imagePath};
     } catch (e) {
       debugPrint('Impurity model error: $e');
       return {'impurity': 0.0, 'path': imagePath};

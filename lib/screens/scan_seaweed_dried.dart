@@ -23,6 +23,21 @@ class _ScanSeaweedDriedState extends SeaweedScannerBaseState<ScanSeaweedDried> {
     const Color darkTeal = Color(0xFF00796B);
     const Color deepGreen = Color(0xFF2E7D32);
 
+    final statusText = justCaptured
+        ? "CAPTURED"
+        : (!canCapture ? "WAITING" : "READY");
+
+    final statusColor = justCaptured
+        ? Colors.green
+        : (!canCapture ? Colors.orangeAccent : darkTeal);
+
+    final q = lastQuality; // 'GOOD' / 'BAD' / null
+    final qColor = (q == 'GOOD')
+        ? Colors.green
+        : (q == 'BAD')
+        ? Colors.red
+        : Colors.black87;
+
     return Scaffold(
       backgroundColor: deepGreen,
       appBar: AppBar(
@@ -103,7 +118,7 @@ class _ScanSeaweedDriedState extends SeaweedScannerBaseState<ScanSeaweedDried> {
                   ),
                 ),
 
-                // ✅ Centered guide box
+                // Centered guide box
                 Center(
                   child: Container(
                     width: 280,
@@ -117,6 +132,71 @@ class _ScanSeaweedDriedState extends SeaweedScannerBaseState<ScanSeaweedDried> {
 
                 if (justCaptured)
                   Container(color: Colors.white.withValues(alpha: 0.3)),
+
+                // Top-right status (READY / WAITING / CAPTURED)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Opacity(
+                    opacity: 0.70,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.10),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // READY / WAITING / CAPTURED
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 7,
+                                height: 7,
+                                decoration: BoxDecoration(
+                                  color: statusColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                statusText,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11.5,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 3),
+
+                          // Auto-Capture
+                          Text(
+                            "Auto: ${autoCaptureEnabled ? 'ON' : 'OFF'}",
+                            style: TextStyle(
+                              color: autoCaptureEnabled ? Colors.green : Colors.black87,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 10.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -141,47 +221,25 @@ class _ScanSeaweedDriedState extends SeaweedScannerBaseState<ScanSeaweedDried> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Impurity: ${lastImpurity?.toStringAsFixed(1)}%",
-                      style: const TextStyle(color: Colors.black87, fontSize: 14)),
+                  Text("Impurity: ${lastImpurity?.toStringAsFixed(1)}% (BAD if ≥ ${impurityThreshold.toStringAsFixed(1)}%)",
+                      style: const TextStyle(color: Colors.black87, fontSize: 16)),
                   Text("Appearance: ${lastHealth ?? '-'}",
-                      style: const TextStyle(color: Colors.black87, fontSize: 14)),
-                  Text("Quality: ${lastQuality ?? '-'}",
-                      style: const TextStyle(color: Colors.black87, fontSize: 15)),
-                  Text(
-                    "Auto-Capture: ${autoCaptureEnabled ? 'ON' : 'OFF'}",
-                    style: const TextStyle(color: Colors.black87, fontSize: 14),
-                  ),
-
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: justCaptured
-                              ? Colors.green
-                              : (!canCapture
-                              ? Colors.orangeAccent
-                              : darkTeal),
-                          shape: BoxShape.circle,
+                      style: const TextStyle(color: Colors.black87, fontSize: 16)),
+                  Text.rich(
+                    TextSpan(
+                      text: "Quality: ",
+                      style: const TextStyle(color: Colors.black87, fontSize: 16),
+                      children: [
+                        TextSpan(
+                          text: q ?? '-',
+                          style: TextStyle(
+                            color: qColor,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        justCaptured
-                            ? "CAPTURED"
-                            : (!canCapture ? "WAITING" : "READY"),
-                        style: TextStyle(
-                          color: justCaptured
-                              ? Colors.green
-                              : (!canCapture
-                              ? Colors.orangeAccent
-                              : darkTeal),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),

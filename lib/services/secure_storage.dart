@@ -12,6 +12,7 @@ class SecureStorage {
   static const _keyRefresh = 'refresh_token';
   static const _keyLastUpdated = 'lastUpdated';
   static const _keyLastSynced  = 'lastSynced';
+  static const _impurityThresholdKey = 'impurity_threshold_percent';
 
   // Save tokens
   static Future<void> saveTokens(String access, String refresh) async {
@@ -81,4 +82,14 @@ class SecureStorage {
 
   static Future<void> clearType() async =>
       _storage.delete(key: _keyType);
+
+  static Future<double> getImpurityThresholdPercent() async {
+    final v = await _storage.read(key: _impurityThresholdKey);
+    // Default if never set
+    return double.tryParse(v ?? '') ?? 3.0;
+  }
+
+  static Future<void> setImpurityThresholdPercent(double value) async {
+    await _storage.write(key: _impurityThresholdKey, value: value.toString());
+  }
 }

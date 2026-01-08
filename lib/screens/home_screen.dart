@@ -9,6 +9,7 @@ import 'scan_seaweed_fresh.dart';
 import 'scan_seaweed_dried.dart';
 import 'view_database_screen.dart';
 import '../utils/date_format.dart';
+import 'impurity_threshold_settings.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -453,6 +454,33 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 child: const Text(
                   'Scan Seaweed',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF2E7D32), // match green theme
+                  side: const BorderSide(color: Color(0xFF2E7D32), width: 1.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const ImpurityThresholdSettings()),
+                  );
+                },
+                icon: const Icon(Icons.tune),
+                label: const Text(
+                  "Impurity Threshold Settings",
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
               ),
             ),
