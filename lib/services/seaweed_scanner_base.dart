@@ -673,56 +673,110 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
 
 
   Future<String> _runClassificationModel(String imagePath) async {
-    if (!_modelsLoaded || _classificationInterpreter == null || !_isActive) return scanMode == ScanMode.fresh ? 'unknown' : 'unknown';
+    if (!_modelsLoaded || _classificationInterpreter == null || !_isActive) {
+      return 'unknown';
+    }
 
     try {
+      // === Load image ===
       final imageBytes = await File(imagePath).readAsBytes();
-      final image = img.decodeImage(imageBytes)!;
+      final src = img.decodeImage(imageBytes);
+      if (src == null) return 'unknown';
 
-      // === Get input shape ===
-      final inputShape = _classificationInterpreter!.getInputTensor(0).shape;
-      final inputHeight = inputShape[1];
-      final inputWidth = inputShape[2];
+      final itp = _classificationInterpreter!;
 
-      // === Preprocess the image (reuse from utils) ===
-      final input = preprocessImage(image, inputWidth, inputHeight);
+      // === Tensor info ===
+      final inT = itp.getInputTensor(0);
+      final outT = itp.getOutputTensor(0);
+      debugPrint('CLS input: shape=${inT.shape} type=${inT.type} quant=${inT.params}');
+      debugPrint('CLS output: shape=${outT.shape} type=${outT.type} quant=${outT.params}');
 
-      // === Prepare output tensor ===
-      final outputShape = _classificationInterpreter!.getOutputTensor(0).shape;
-      final output = List.filled(outputShape.reduce((a, b) => a * b), 0.0)
-          .reshape(outputShape);
+      final shape = inT.shape; // expected [1,3,224,224] from Netron
 
-      // === Run inference ===
-      _classificationInterpreter!.run(input, output);
+      // --- Validate shape (supports NCHW or NHWC) ---
+      final bool isNCHW =
+          shape.length == 4 && shape[0] == 1 && shape[1] == 3 && shape[2] == 224 && shape[3] == 224;
+      final bool isNHWC =
+          shape.length == 4 && shape[0] == 1 && shape[1] == 224 && shape[2] == 224 && shape[3] == 3;
 
-      // === Interpret results ===
-      if (output.isNotEmpty) {
-        final result = output[0];
-        if (result is List && result.length >= 2) {
-          // Apply softmax
-          final expScores = result.map((x) => math.exp(x)).toList();
-          final sumExp = expScores.fold<double>(0.0, (a, b) => a + b);
-          final probs = expScores.map((x) => x / (sumExp == 0 ? 1.0 : sumExp)).toList();
-
-          final firstScore = probs[0];
-          final secondScore = probs[1];
-
-          debugPrint('Classification probs -> 0=$firstScore, 1=$secondScore');
-
-          if (scanMode == ScanMode.fresh) {
-            // [healthy, unhealthy]
-            return firstScore > secondScore ? 'healthy' : 'unhealthy';
-          } else {
-            // dried: [satisfactory, unsatisfactory]
-            return firstScore > secondScore ? 'satisfactory' : 'unsatisfactory';
-          }
-        }
+      if (!isNCHW && !isNHWC) {
+        throw Exception('Unexpected classifier input shape: $shape. '
+            'Expected [1,3,224,224] (NCHW) or [1,224,224,3] (NHWC).');
       }
 
-      return scanMode == ScanMode.fresh ? 'unknown' : 'unknown';
+      // === Resize to 224x224 (classifier standard) ===
+      final resized = img.copyResize(src, width: 224, height: 224);
+
+      // === Build input tensor ===
+      // NOTE: Model is float32, so we feed normalized floats.
+      dynamic input; // nested lists shaped exactly as the model expects
+
+      if (isNCHW) {
+        // [1, 3, 224, 224]
+        final r = List.generate(224, (_) => List<double>.filled(224, 0.0));
+        final g = List.generate(224, (_) => List<double>.filled(224, 0.0));
+        final b = List.generate(224, (_) => List<double>.filled(224, 0.0));
+
+        for (int y = 0; y < 224; y++) {
+          for (int x = 0; x < 224; x++) {
+            final p = resized.getPixel(x, y);
+            r[y][x] = p.r / 255.0;
+            g[y][x] = p.g / 255.0;
+            b[y][x] = p.b / 255.0;
+          }
+        }
+
+        input = [
+          [r, g, b]
+        ];
+      } else {
+        // NHWC: [1, 224, 224, 3]
+        final hwc = List.generate(
+          224,
+              (y) => List.generate(
+            224,
+                (x) {
+              final p = resized.getPixel(x, y);
+              return <double>[p.r / 255.0, p.g / 255.0, p.b / 255.0];
+            },
+          ),
+        );
+        input = [hwc];
+      }
+
+      // === Output buffer ===
+      // Your model output is [1,2] float32
+      final output = [List<double>.filled(2, 0.0)];
+
+      // === Run inference ===
+      itp.run(input, output);
+
+      // === Softmax (stable) ===
+      final probs = List<double>.from(output[0]);
+      /*
+      final maxLogit = logits.reduce((a, b) => a > b ? a : b);
+      final exps = logits.map((v) => math.exp(v - maxLogit)).toList();
+      final sumExp = exps.fold<double>(0.0, (a, b) => a + b);
+      final probs = exps.map((e) => e / (sumExp == 0 ? 1.0 : sumExp)).toList();
+
+      debugPrint('CLS logits=$logits probs=$probs');
+*/
+      debugPrint('CLS probs(raw)=$probs sum=${probs[0] + probs[1]}');
+
+      final p0 = probs[0];
+      final p1 = probs[1];
+
+      // === Map to labels ===
+      if (scanMode == ScanMode.fresh) {
+        // assumed: [healthy, unhealthy]
+        return p0 >= p1 ? 'healthy' : 'unhealthy';
+      } else {
+        // assumed: [satisfactory, unsatisfactory]
+        return p0 >= p1 ? 'satisfactory' : 'unsatisfactory';
+      }
     } catch (e) {
       debugPrint('Classification model error: $e');
-      return scanMode == ScanMode.fresh ? 'unknown' : 'unknown';
+      return 'unknown';
     }
   }
 

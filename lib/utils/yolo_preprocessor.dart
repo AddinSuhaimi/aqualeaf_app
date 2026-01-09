@@ -1,6 +1,7 @@
 // lib/utils/yolo_preprocessor.dart
 import 'dart:math' as math;
 import 'package:image/image.dart' as img;
+import 'dart:typed_data';
 
 /// =====================
 ///  IMAGE PREPROCESSING
@@ -36,6 +37,33 @@ List<List<List<List<double>>>> preprocessImage(img.Image image, int width, int h
       }),
     ),
   ];
+}
+
+List makeNCHWInput(img.Image src, {int size = 224}) {
+  final resized = img.copyResize(src, width: size, height: size);
+
+  final r = List.generate(size, (_) => List<double>.filled(size, 0.0));
+  final g = List.generate(size, (_) => List<double>.filled(size, 0.0));
+  final b = List.generate(size, (_) => List<double>.filled(size, 0.0));
+
+  for (int y = 0; y < size; y++) {
+    for (int x = 0; x < size; x++) {
+      final p = resized.getPixel(x, y);
+      r[y][x] = p.r / 255.0;
+      g[y][x] = p.g / 255.0;
+      b[y][x] = p.b / 255.0;
+    }
+  }
+
+  // [1, 3, 224, 224]
+  return [[r, g, b]];
+}
+
+List<double> softmax2(List<double> logits) {
+  final m = logits.reduce((a, b) => a > b ? a : b);
+  final exps = logits.map((x) => math.exp(x - m)).toList();
+  final sum = exps.fold<double>(0.0, (a, b) => a + b);
+  return exps.map((e) => e / (sum == 0 ? 1.0 : sum)).toList();
 }
 
 /// =======================
