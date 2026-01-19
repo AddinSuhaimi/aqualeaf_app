@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../services/secure_storage.dart';
-import 'species_selection_screen.dart';
-import 'home_screen.dart';
-import 'api_settings_screen.dart';
+import 'manual_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -16,55 +15,123 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _farmController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  void _handleLogin() async {
-    final result = await ApiService.loginUser(
-      _farmController.text,
-      _passwordController.text,
+  bool _obscurePassword = true;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _farmController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _showLoadingDialog() async {
+    // Show a modal that cannot be dismissed by tapping outside
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const _LoadingDialog(message: "Logging in..."),
     );
+  }
 
-    if (!mounted) return;
+  void _hideLoadingDialog() {
+    if (Navigator.of(context, rootNavigator: true).canPop()) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
+  }
 
-    if (result != null && result['success'] == true) {
-      final data = result['data'];
+  Future<void> _handleLogin() async {
+    if (_isLoading) return;
 
-      final accessToken = data['accessToken'] as String?;
-      final refreshToken = data['refreshToken'] as String?;
-      if (accessToken == null || refreshToken == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("❌ Invalid login response")),
-        );
-        return;
-      }
-      await SecureStorage.saveTokens(accessToken, refreshToken); // save securely
-      print("Stored Access Token: $accessToken");
-      print("Stored Refresh Token: $refreshToken");
+    final email = _farmController.text.trim();
+    final password = _passwordController.text;
 
+    if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ Login successful")),
+        SnackBar(
+          content: const Text("❌ Email and password are required"),
+          backgroundColor: Colors.red.shade600,
+        ),
       );
+      return;
+    }
 
-      // Check if species already chosen
-      final species = await SecureStorage.getSpecies();
+    setState(() => _isLoading = true);
+    await _showLoadingDialog();
+
+    try {
+      final result = await ApiService.loginUser(email, password);
 
       if (!mounted) return;
 
-      if (species == null) {
+      if (result != null && result['success'] == true) {
+        final data = result['data'];
+
+        final accessToken = data['accessToken'] as String?;
+        final refreshToken = data['refreshToken'] as String?;
+
+        if (accessToken == null || refreshToken == null) {
+          _hideLoadingDialog();
+          setState(() => _isLoading = false);
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text("❌ Invalid login response"),
+              backgroundColor: Colors.red.shade600,
+            ),
+          );
+          return;
+        }
+
+        await SecureStorage.saveTokens(accessToken, refreshToken);
+
+        _hideLoadingDialog();
+        setState(() => _isLoading = false);
+
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const SpeciesSelectionScreen()),
+          MaterialPageRoute(builder: (_) => const ManualScreen()),
         );
       } else {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        final errorMessage = result?['message'] ?? 'Login failed';
+
+        _hideLoadingDialog();
+        setState(() => _isLoading = false);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("❌ $errorMessage"),
+            backgroundColor: Colors.red.shade600,
+          ),
         );
       }
-    } else {
-      final errorMessage = result?['message'] ?? 'Login failed';
+    } catch (e) {
+      if (!mounted) return;
+
+      _hideLoadingDialog();
+      setState(() => _isLoading = false);
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("❌ $errorMessage"),
+          content: Text("❌ Login error: $e"),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+    }
+  }
+
+  Future<void> _openAquaLeafWebsite() async {
+    final uri = Uri.parse("https://aqualeaf-web.vercel.app/");
+
+    final ok = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("❌ Could not open website"),
           backgroundColor: Colors.red.shade600,
         ),
       );
@@ -86,11 +153,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
+                  boxShadow: const [
                     BoxShadow(
                       color: Colors.black26,
                       blurRadius: 6,
-                      offset: const Offset(0, 3),
+                      offset: Offset(0, 3),
                     ),
                   ],
                 ),
@@ -113,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
+                  boxShadow: const [
                     BoxShadow(
                       color: Colors.black26,
                       blurRadius: 6,
@@ -126,6 +193,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Email field
                     TextField(
                       controller: _farmController,
+                      keyboardType: TextInputType.emailAddress,
                       decoration: const InputDecoration(
                         labelText: "Email",
                         border: OutlineInputBorder(),
@@ -133,18 +201,28 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Password field
+                    // Password field + show/hide
                     TextField(
                       controller: _passwordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
                         labelText: "Password",
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: IconButton(
+                          tooltip: _obscurePassword ? "Show password" : "Hide password",
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() => _obscurePassword = !_obscurePassword);
+                          },
+                        ),
                       ),
                     ),
+
                     const SizedBox(height: 20),
 
-                    // Sign In button
+                    // Login button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -156,12 +234,43 @@ class _LoginScreenState extends State<LoginScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                         ),
-                        onPressed: _handleLogin,
-                        child: const Text(
-                          "Sign In",
-                          style: TextStyle(fontSize: 16),
+                        onPressed: _isLoading ? null : _handleLogin,
+                        child: Text(
+                          _isLoading ? "Logging In..." : "Login",
+                          style: const TextStyle(fontSize: 16),
                         ),
                       ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "Don't have an account?",
+                          style: TextStyle(fontSize: 13),
+                          textAlign: TextAlign.center,
+                        ),
+                        TextButton(
+                          onPressed: _isLoading ? null : _openAquaLeafWebsite,
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(0, 0),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            "Register at AquaLeaf Website",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              decoration: TextDecoration.underline,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -170,15 +279,32 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.settings),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => ApiSettingsScreen()),
-          );
-        },
+    );
+  }
+}
+
+class _LoadingDialog extends StatelessWidget {
+  final String message;
+  const _LoadingDialog({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      content: Row(
+        children: [
+          const SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(fontSize: 15),
+            ),
+          ),
+        ],
       ),
     );
   }

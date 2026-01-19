@@ -27,12 +27,7 @@ class _TypeSelectionScreenState extends State<TypeSelectionScreen> {
 
   Future<void> _selectType(BuildContext context, String type) async {
     await SecureStorage.saveType(type.toLowerCase()); // fresh / dried
-
     if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("$type selected")),
-    );
 
     // Navigate to home screen
     Navigator.pushReplacement(

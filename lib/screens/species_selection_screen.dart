@@ -59,10 +59,6 @@ class _SpeciesSelectionScreenState extends State<SpeciesSelectionScreen> {
     await SecureStorage.saveSpecies(species); // store locally
     if (!context.mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("$species species selected")),
-    );
-
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const TypeSelectionScreen()),
