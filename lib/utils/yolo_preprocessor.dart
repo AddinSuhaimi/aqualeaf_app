@@ -87,13 +87,13 @@ class YOLODecoder {
     }
 
     if (pred is! List<List<double>>) {
-      print("⚠️ Unexpected shape: ${pred.runtimeType}");
+      // print("Unexpected shape: ${pred.runtimeType}");
       return boxes;
     }
 
     final numChannels = pred.length;
     final numAnchors = pred[0].length;
-    print("🧠 Decoding impurity model: $numChannels channels, $numAnchors anchors");
+    // print("Decoding impurity model: $numChannels channels, $numAnchors anchors");
 
     // stride patterns: 80x80 + 40x40 + 20x20 = 8400
     const strides = [8, 16, 32];
@@ -139,7 +139,7 @@ class YOLODecoder {
       offset += numCells;
     }
 
-    print("✅ Decoded ${boxes.length} impurity boxes");
+    // print("Decoded ${boxes.length} impurity boxes");
     return boxes;
   }
 }

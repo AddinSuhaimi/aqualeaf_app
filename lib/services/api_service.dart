@@ -12,7 +12,7 @@ class ApiService {
       String email, String password) async {
 
     final url = Uri.parse("${AppConfig.apiBaseUrl}/login");
-    print("POST $url");
+    // print("POST $url");
 
     try {
       final response = await http.post(
@@ -24,7 +24,7 @@ class ApiService {
         }),
       );
 
-      print("Response ${response.statusCode}: ${response.body}");
+      // print("Response ${response.statusCode}: ${response.body}");
 
       final Map<String, dynamic> body = jsonDecode(response.body);
 
@@ -42,7 +42,7 @@ class ApiService {
         };
       }
     } catch (e) {
-      print("Error connecting to API during login: $e");
+      // print("Error connecting to API during login: $e");
       return {
         "success": false,
         "message": "Connection error. Please try again.",
@@ -64,7 +64,7 @@ class ApiService {
         body: jsonEncode({"refreshToken": refresh}),
       );
 
-      print("Refresh response: ${res.statusCode} ${res.body}");
+      // print("Refresh response: ${res.statusCode} ${res.body}");
 
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -73,7 +73,7 @@ class ApiService {
         // update stored token
         await SecureStorage.saveAccessToken(newAccess);
 
-        print("Access token refreshed");
+        // print("Access token refreshed");
         return true;
       }
 

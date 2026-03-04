@@ -203,11 +203,11 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
 
       if (!mounted || !_isActive) return;
       setState(() => _modelsLoaded = true);
-      debugPrint('Loaded TFLite models for $_species (${scanMode.name})');
+      // debugPrint('Loaded TFLite models for $_species (${scanMode.name})');
 
-      // 🔍 Print model input shapes for debugging
-      print('Impurity model input shape: ${_impurityInterpreter!.getInputTensor(0).shape}');
-      print('Classification model input shape: ${_classificationInterpreter!.getInputTensor(0).shape}');
+      // Print model input shapes for debugging
+      // print('Impurity model input shape: ${_impurityInterpreter!.getInputTensor(0).shape}');
+      // print('Classification model input shape: ${_classificationInterpreter!.getInputTensor(0).shape}');
 
       if (mounted && _isActive) {
         ScaffoldMessenger.of(super.context).showSnackBar(
@@ -215,7 +215,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
         );
       }
     } catch (e) {
-      debugPrint('Failed to load models: $e');
+      // debugPrint('Failed to load models: $e');
     }
   }
 
@@ -274,6 +274,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
         total++;
       }
     }
+
     return (changed / total) * 100.0;
   }
 
@@ -324,23 +325,23 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
   // === Cooldown & re-arm logic ===
   void _startCooldown(double lastMotion) {
     _showCaptureIndicator();
-    debugPrint("Cooldown started (0.5s)"); // much shorter
+    // debugPrint("Cooldown started (0.5s)"); // much shorter
 
     Future.delayed(const Duration(milliseconds: 500), () {
       if (!_isActive) return;
       // If the seaweed already left, re-arm immediately
       if (_latestMotion < 5) {
         _canCapture = true;
-        debugPrint("Re-armed immediately after capture");
+        // debugPrint("Re-armed immediately after capture");
       } else {
-        debugPrint("Waiting for scene to clear...");
+        // debugPrint("Waiting for scene to clear...");
         _waitUntilClear();
       }
     });
   }
 
   Future<void> _waitUntilClear() async {
-    debugPrint("[Scanner] Waiting for scene to clear...");
+    // debugPrint("[Scanner] Waiting for scene to clear...");
 
     final timer = Timer.periodic(const Duration(milliseconds: 400), (timer) {
       if (!_isActive) {
@@ -352,7 +353,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
 
       if (motion < 5) {
         _canCapture = true;
-        debugPrint("[Scanner] Scene cleared → Re-armed");
+        // debugPrint("[Scanner] Scene cleared → Re-armed");
         timer.cancel();
       }
     });
@@ -363,7 +364,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
       if (!_isActive) return;
       if (!_canCapture) {
         _canCapture = true;
-        debugPrint("[Scanner] Timeout → Forced re-arm");
+        // debugPrint("[Scanner] Timeout → Forced re-arm");
       }
     });
   }
@@ -371,7 +372,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
   Future<void> handleManualCapture() async {
     if (!_isActive) return;
     if (_isProcessing || !_canCapture || _isCapturing) {
-      debugPrint("Manual capture ignored (busy or cooling down)");
+      // debugPrint("Manual capture ignored (busy or cooling down)");
       return;
     }
 
@@ -380,7 +381,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
       _canCapture = false;
     });
 
-    debugPrint("📸 Manual capture triggered");
+    // debugPrint("Manual capture triggered");
     await _captureImage();
 
     // Start cooldown to prevent rapid double captures
@@ -455,7 +456,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
         );
 
         await DatabaseHelper.instance.insertFreshReport(report);
-        debugPrint('Fresh report saved.');
+        // debugPrint('Fresh report saved.');
       } else {
 
         final uuid = const Uuid().v4();     // idempotency key
@@ -472,11 +473,11 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
         );
 
         await DatabaseHelper.instance.insertDriedReport(report);
-        debugPrint('Dried report saved.');
+        // debugPrint('Dried report saved.');
       }
 
     } catch (e) {
-      debugPrint('Capture error: $e');
+      // debugPrint('Capture error: $e');
     } finally {
       _isCapturing = false;
     }
@@ -504,7 +505,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
       final inputShape = _impurityInterpreter!.getInputTensor(0).shape;
       final inputHeight = inputShape[1];
       final inputWidth = inputShape[2];
-      debugPrint('Impurity inputShape = $inputShape');
+      // debugPrint('Impurity inputShape = $inputShape');
 
       // === Preprocess image (NHWC layout) ===
       final input = preprocessImage(image, inputWidth, inputHeight);
@@ -611,7 +612,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
 
       return {'impurity': impurityPercent, 'path': imagePath};
     } catch (e) {
-      debugPrint('Impurity model error: $e');
+      // debugPrint('Impurity model error: $e');
       return {'impurity': 0.0, 'path': imagePath};
     }
   }
@@ -659,9 +660,9 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
     (normalizedEnergy * scaleFactor * 100.0).clamp(0.0, 100.0);
 
     // --- Step 6: Debug info ---
-    print("Decoding impurity model: $numChannels channels, $numAnchors anchors");
-    print("Activation stats → mean=$meanVal, max=$maxVal");
-    print("Activated cells: $activeCount / $numAnchors → impurity=$impurityPercent%");
+    // print("Decoding impurity model: $numChannels channels, $numAnchors anchors");
+    // print("Activation stats → mean=$meanVal, max=$maxVal");
+    // print("Activated cells: $activeCount / $numAnchors → impurity=$impurityPercent%");
 
     return {
       'impurity': impurityPercent,
@@ -688,8 +689,8 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
       // === Tensor info ===
       final inT = itp.getInputTensor(0);
       final outT = itp.getOutputTensor(0);
-      debugPrint('CLS input: shape=${inT.shape} type=${inT.type} quant=${inT.params}');
-      debugPrint('CLS output: shape=${outT.shape} type=${outT.type} quant=${outT.params}');
+      // debugPrint('CLS input: shape=${inT.shape} type=${inT.type} quant=${inT.params}');
+      // debugPrint('CLS output: shape=${outT.shape} type=${outT.type} quant=${outT.params}');
 
       final shape = inT.shape; // expected [1,3,224,224] from Netron
 
@@ -761,7 +762,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
 
       debugPrint('CLS logits=$logits probs=$probs');
 */
-      debugPrint('CLS probs(raw)=$probs sum=${probs[0] + probs[1]}');
+      // debugPrint('CLS probs(raw)=$probs sum=${probs[0] + probs[1]}');
 
       final p0 = probs[0];
       final p1 = probs[1];
@@ -775,7 +776,7 @@ abstract class SeaweedScannerBaseState<T extends StatefulWidget> extends State<T
         return p0 >= p1 ? 'satisfactory' : 'unsatisfactory';
       }
     } catch (e) {
-      debugPrint('Classification model error: $e');
+      // debugPrint('Classification model error: $e');
       return 'unknown';
     }
   }
