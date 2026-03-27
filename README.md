@@ -44,12 +44,7 @@ The app relies on specific local assets located in the `assets/` folder. Ensure 
     flutter pub get
     ```
 
-3.  **Generate Launcher Icons** (Optional/If modified)
-    ```bash
-    flutter pub run flutter_launcher_icons
-    ```
-
-4.  **Run the App**
+3.  **Run the App**
     Connect your device/emulator and execute:
     ```bash
     flutter run
