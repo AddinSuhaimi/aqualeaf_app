@@ -1,47 +1,63 @@
 ## Prerequisites
 
-Before you can run the **AquaLeaf** mobile application, ensure you have the following software and environment configurations set up on your machine:
+To successfully set up and run **AquaLeaf**, please ensure your development environment meets the following requirements:
 
-### **1. Flutter SDK**
-* **Flutter:** Ensure you have the Flutter SDK installed. 
-  * [Download Flutter SDK](https://docs.flutter.dev/get-started/install)
-  * After installation, run `flutter doctor` in your terminal to verify that all dependencies are met.
+### **1. Core Development Tools**
+* **Flutter SDK:** Version **3.9.2** or higher.
+    * *Note:* Run `flutter --version` to check your current version.
+* **Dart SDK:** Version **^3.9.2**.
+* **Android Studio:** Latest version with the **Flutter** and **Dart** plugins installed.
 
-### **2. Integrated Development Environment (IDE)**
-* **Android Studio:** * Install the **Flutter** and **Dart** plugins via `Settings > Plugins`.
-  * Set up the **Android SDK** and **Command-line Tools** within the SDK Manager.
-* *Alternative:* Visual Studio Code (with Flutter/Dart extensions).
+### **2. Hardware & Permissions**
+This app utilizes specialized hardware features. Ensure your testing environment supports:
+* **Camera:** A physical device is recommended. If using an emulator, ensure "Camera" is enabled in the AVD settings.
+* **Storage:** The app uses `sqflite` and `path_provider` for local data persistence.
+* **Internet:** Required for `http` requests and `connectivity_plus` checks.
 
-### **3. Mobile Development Environment**
-* **Android:** * An **Android Emulator** (configured via AVD Manager in Android Studio) or a physical Android device with **USB Debugging** enabled.
-  * Java Development Kit (JDK) 11 or higher (usually bundled with Android Studio).
-* **iOS (macOS only):** * Xcode installed to run on iOS simulators or physical iPhones.
+### **3. Machine Learning Requirements (`tflite_flutter`)**
+Since the app uses **TensorFlow Lite** for image classification:
+* **Android:** Ensure your `minSdkVersion` in `android/app/build.gradle` is at least **21**.
+* **TensorFlow Binaries:** You may need to run the following if the ML models fail to load:
+    ```bash
+    flutter pub run tflite_flutter:download
+    ```
 
-### **4. CocoaPods (macOS only)**
-* If you are developing on a Mac for iOS, you must have CocoaPods installed to manage plugin dependencies:
-  ```bash
-  sudo gem install cocoapods
-  ```
+### **4. Asset Configuration**
+The app relies on specific local assets located in the `assets/` folder. Ensure these files exist before building:
+* **Models:** `assets/models/` (TFLite models)
+* **Manuals:** `assets/manual/`
+* **Images:** `assets/seaweed/` and `assets/aqualeaf-logo.png`
 
 ---
 
-## Getting Started
+## Installation & Setup
 
-Once the prerequisites are met, follow these steps to launch the app:
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/AddinSuhaimi/aqualeaf_app.git
+    cd aqualeaf_app
+    ```
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/AddinSuhaimi/aqualeaf_app.git
-   ```
-2. **Navigate to the project directory:**
-   ```bash
-   cd aqualeaf_app
-   ```
-3. **Install dependencies:**
-   ```bash
-   flutter pub get
-   ```
-4. **Run the application:**
-   ```bash
-   flutter run
-   ```
+2.  **Install Dependencies**
+    Fetch all the packages listed in `pubspec.yaml` (including `flutter_secure_storage`, `camera`, and `tflite_flutter`):
+    ```bash
+    flutter pub get
+    ```
+
+3.  **Generate Launcher Icons** (Optional/If modified)
+    ```bash
+    flutter pub run flutter_launcher_icons
+    ```
+
+4.  **Run the App**
+    Connect your device/emulator and execute:
+    ```bash
+    flutter run
+    ```
+
+---
+
+### **Troubleshooting Common Issues**
+* **TFLite Errors:** If you get a "Library not found" error for TFLite, ensure you have followed the [tflite_flutter setup guide](https://pub.dev/packages/tflite_flutter) regarding dynamic libraries.
+* **Secure Storage (Android):** If the app crashes on launch, ensure your `minSdkVersion` is high enough to support `flutter_secure_storage`.
+* **CocoaPods (iOS):** If running on a Mac, navigate to the `ios` folder and run `pod install`.
